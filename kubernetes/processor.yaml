@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: processor
+spec:
+  # Screens new returns and transmits them to the agencies. Rows are claimed with a lease and
+  # FOR UPDATE SKIP LOCKED, so replicas never transmit the same return.
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: processor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: processor
+        tax-refund/db-client: "true"
+        tax-refund/agency-client: "true"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: processor
+          image: tax-refund-backend
+          imagePullPolicy: IfNotPresent
+          args: ["process"]
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: app-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { memory: 128Mi }

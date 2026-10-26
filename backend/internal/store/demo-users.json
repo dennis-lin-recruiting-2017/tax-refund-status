@@ -1,0 +1,23 @@
+[
+  {
+    "email": "alex@example.test",
+    "password": "Demo-Refund-2025!",
+    "fullName": "Alex Rivera",
+    "taxIdLast4": "1001",
+    "role": "taxpayer"
+  },
+  {
+    "email": "sam@example.test",
+    "password": "Demo-Refund-2025!",
+    "fullName": "Sam Chen",
+    "taxIdLast4": "1002",
+    "role": "taxpayer"
+  },
+  {
+    "email": "demo-admin@interview.com",
+    "password": "Admin-SxHvwoqi0i!",
+    "fullName": "Demo Admin",
+    "taxIdLast4": "0000",
+    "role": "admin"
+  }
+]

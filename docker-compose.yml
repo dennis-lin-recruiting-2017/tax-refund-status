@@ -1,0 +1,119 @@
+# Integration mode: `make up` runs the full stack. Dev mode only uses postgres and jaeger
+# (`make dev-db`); the Go services run natively.
+name: tax-refund
+
+x-backend-env: &backend-env
+  APP_ENV: integration
+  DATABASE_URL: postgres://taxrefund:taxrefund@postgres:5432/taxrefund?sslmode=disable
+  # Demo-only secrets. Real deployments inject these from a secret store.
+  BANK_HMAC_KEY: integration-demo-bank-hmac-key
+  AGENCY_API_KEY: integration-demo-agency-api-key
+  AGENCY_ADMIN_KEY: integration-demo-agency-admin-key
+  AGENCY_IRS_URL: http://agency-irs:9100
+  AGENCY_CA_FTB_URL: http://agency-ca-ftb:9100
+  BATCH_INTERVAL_SECONDS: "15"
+  RECHECK_INTERVAL_SECONDS: "10"
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+x-agency-env: &agency-env
+  APP_ENV: integration
+  AGENCY_API_KEY: integration-demo-agency-api-key
+  AGENCY_ADMIN_KEY: integration-demo-agency-admin-key
+  AGENCY_ADDR: ":9100"
+  # The mock agencies keep admin status overrides in their own schema (agency_mock).
+  DATABASE_URL: postgres://taxrefund:taxrefund@postgres:5432/taxrefund?sslmode=disable
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: taxrefund
+      POSTGRES_PASSWORD: taxrefund
+      POSTGRES_DB: taxrefund
+    ports:
+      # Override with POSTGRES_PORT if 5432 is taken (then set DATABASE_URL for dev mode).
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taxrefund -d taxrefund"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  jaeger:
+    image: jaegertracing/jaeger:2.6.0
+    environment:
+      JAEGER_LISTEN_HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:16686:16686" # UI
+      - "127.0.0.1:4318:4318"   # OTLP over HTTP, used by dev mode
+
+  agency-irs:
+    build: ./backend
+    command: ["agency"]
+    environment:
+      <<: *agency-env
+      AGENCY: irs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+
+  agency-ca-ftb:
+    build: ./backend
+    command: ["agency"]
+    environment:
+      <<: *agency-env
+      AGENCY: ca-ftb
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+
+  backend:
+    build: ./backend
+    command: ["serve"]
+    environment: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/taxrefund", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    read_only: true
+
+  processor:
+    build: ./backend
+    command: ["process"]
+    environment: *backend-env
+    depends_on:
+      backend:
+        condition: service_healthy
+    read_only: true
+
+  batch:
+    build: ./backend
+    command: ["batch-schedule"]
+    environment: *backend-env
+    depends_on:
+      backend:
+        condition: service_healthy
+    read_only: true
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:8088:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  pgdata:

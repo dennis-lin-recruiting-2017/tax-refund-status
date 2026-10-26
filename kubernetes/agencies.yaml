@@ -1,0 +1,149 @@
+# Mock tax agency APIs. Real agencies offer no such API; these stand in for them. Each follows an
+# automatic timeline unless an admin pins a return to a status through its operator endpoints.
+apiVersion: v1
+kind: Service
+metadata:
+  name: agency-irs
+spec:
+  selector:
+    app.kubernetes.io/name: agency-irs
+  ports:
+    - name: http
+      port: 9100
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agency-ca-ftb
+spec:
+  selector:
+    app.kubernetes.io/name: agency-ca-ftb
+  ports:
+    - name: http
+      port: 9100
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agency-irs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: agency-irs
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agency-irs
+        tax-refund/agency: "true"
+        tax-refund/db-client: "true"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: agency
+          image: tax-refund-backend
+          imagePullPolicy: IfNotPresent
+          args: ["agency"]
+          env:
+            - name: AGENCY
+              value: irs
+            - name: APP_ENV
+              value: kubernetes
+            - name: AGENCY_ADDR
+              value: ":9100"
+            - name: AGENCY_API_KEY
+              valueFrom:
+                secretKeyRef: { name: app-secrets, key: AGENCY_API_KEY }
+            - name: AGENCY_ADMIN_KEY
+              valueFrom:
+                secretKeyRef: { name: app-secrets, key: AGENCY_ADMIN_KEY }
+            # Admin status overrides live in the agency_mock schema.
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: { name: app-secrets, key: DATABASE_URL }
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://jaeger:4318
+          ports:
+            - name: http
+              containerPort: 9100
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { memory: 128Mi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agency-ca-ftb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: agency-ca-ftb
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agency-ca-ftb
+        tax-refund/agency: "true"
+        tax-refund/db-client: "true"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: agency
+          image: tax-refund-backend
+          imagePullPolicy: IfNotPresent
+          args: ["agency"]
+          env:
+            - name: AGENCY
+              value: ca-ftb
+            - name: APP_ENV
+              value: kubernetes
+            - name: AGENCY_ADDR
+              value: ":9100"
+            - name: AGENCY_API_KEY
+              valueFrom:
+                secretKeyRef: { name: app-secrets, key: AGENCY_API_KEY }
+            - name: AGENCY_ADMIN_KEY
+              valueFrom:
+                secretKeyRef: { name: app-secrets, key: AGENCY_ADMIN_KEY }
+            # Admin status overrides live in the agency_mock schema.
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: { name: app-secrets, key: DATABASE_URL }
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://jaeger:4318
+          ports:
+            - name: http
+              containerPort: 9100
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { memory: 128Mi }

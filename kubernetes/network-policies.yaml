@@ -1,0 +1,86 @@
+# Default deny, then open only the paths the app needs:
+#   anyone -> frontend:8080 -> backend:8080 -> postgres:5432 <- processor, batch
+#   processor, batch, backend (admin) -> agency-irs:9100, agency-ca-ftb:9100
+#   agencies -> postgres:5432 (their own agency_mock schema)
+#   every pod -> jaeger:4318 (traces)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: frontend
+  ingress:
+    - ports:
+        - port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-from-frontend
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend
+      ports:
+        - port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-from-db-clients
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              tax-refund/db-client: "true"
+      ports:
+        - port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agencies-from-agency-clients
+spec:
+  podSelector:
+    matchLabels:
+      tax-refund/agency: "true"
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              tax-refund/agency-client: "true"
+      ports:
+        - port: 9100
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: jaeger-from-namespace
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: jaeger
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - port: 4318

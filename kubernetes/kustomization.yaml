@@ -1,0 +1,55 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: tax-refund
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: tax-refund
+    includeSelectors: false
+
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - backend.yaml
+  - processor.yaml
+  - frontend.yaml
+  - agencies.yaml
+  - batch.yaml
+  - jaeger.yaml
+  - network-policies.yaml
+
+configMapGenerator:
+  - name: backend-config
+    literals:
+      - APP_ENV=kubernetes
+      - SESSION_TTL_MINUTES=30
+      # Port-forward is plain HTTP. Set true behind a TLS ingress.
+      - COOKIE_SECURE=false
+      - PROCESSOR_INTERVAL_MS=2000
+      - SIMILARITY_THRESHOLD=0.02
+      # Batch status sync. Production: recheck on agency update cycles (hours), not seconds.
+      - RECHECK_INTERVAL_SECONDS=10
+      - BATCH_CHUNK_SIZE=100
+      - BATCH_WORKERS=4
+      - AGENCY_RPS=20
+      - AGENCY_IRS_URL=http://agency-irs:9100
+      - AGENCY_CA_FTB_URL=http://agency-ca-ftb:9100
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+
+# Demo-only secrets so the stack runs out of the box. In a real cluster these come from a
+# secret manager (External Secrets, Sealed Secrets, Vault) and never live in the repo.
+secretGenerator:
+  - name: app-secrets
+    literals:
+      - POSTGRES_PASSWORD=k8s-demo-postgres-password
+      - DATABASE_URL=postgres://taxrefund:k8s-demo-postgres-password@postgres:5432/taxrefund?sslmode=disable
+      - BANK_HMAC_KEY=k8s-demo-bank-fingerprint-hmac-key
+      - AGENCY_API_KEY=k8s-demo-agency-api-key
+      # Demo only: lets the admin UI change statuses at the mock agencies.
+      - AGENCY_ADMIN_KEY=k8s-demo-agency-admin-key
+
+images:
+  - name: tax-refund-backend
+    newTag: dev
+  - name: tax-refund-frontend
+    newTag: dev
