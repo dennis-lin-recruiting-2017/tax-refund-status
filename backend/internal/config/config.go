@@ -3,8 +3,10 @@ package config
 
 import (
 	"fmt"
+	"net/netip"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -16,6 +18,9 @@ type Config struct {
 	SessionTTL   time.Duration
 	CookieSecure bool
 	BankHMACKey  []byte
+	// Proxies whose X-Forwarded-For entries are believed when working out a client's address.
+	// Production lists only its own load balancers and the portal's pods.
+	TrustedProxies []netip.Prefix
 
 	MigrateOnStart bool
 	SeedDemoUsers  bool
@@ -23,6 +28,7 @@ type Config struct {
 	// Processor: screens new returns and transmits them to the agencies.
 	ProcessorInterval   time.Duration
 	SimilarityThreshold float64 // cosine distance below which returns count as near-duplicates
+	SubmitRPS           float64 // transmissions per second to each agency, shared by every processor replica
 
 	// Batch status sync.
 	BatchInterval   time.Duration // time between scheduled runs (batch-schedule and `all`)
@@ -60,6 +66,9 @@ const (
 	devHMACKey        = "dev-only-bank-hmac-key-change-me"
 	devAgencyKey      = "dev-only-agency-api-key"
 	devAgencyAdminKey = "dev-only-agency-admin-key"
+
+	// Loopback and private ranges: wherever the portal and any load balancer run in a local cluster.
+	defaultTrustedProxies = "127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7"
 )
 
 func Load() (Config, error) {
@@ -74,6 +83,7 @@ func Load() (Config, error) {
 		SeedDemoUsers:       getBool("SEED_DEMO_USERS", true),
 		ProcessorInterval:   duration("PROCESSOR_INTERVAL_MS", 2000, time.Millisecond),
 		SimilarityThreshold: getFloat("SIMILARITY_THRESHOLD", 0.02),
+		SubmitRPS:           getFloat("SUBMIT_RPS", 10),
 		BatchInterval:       duration("BATCH_INTERVAL_SECONDS", 15, time.Second),
 		BatchChunkSize:      min(getInt("BATCH_CHUNK_SIZE", 100), 100),
 		BatchWorkers:        max(getInt("BATCH_WORKERS", 4), 1),
@@ -85,6 +95,7 @@ func Load() (Config, error) {
 		AgencyURLs: map[string]string{
 			"irs":    os.Getenv("AGENCY_IRS_URL"),
 			"ca-ftb": os.Getenv("AGENCY_CA_FTB_URL"),
+			"ny-dtf": os.Getenv("AGENCY_NY_DTF_URL"),
 		},
 		AgencyAPIKey:   os.Getenv("AGENCY_API_KEY"),
 		AgencyAdminKey: os.Getenv("AGENCY_ADMIN_KEY"),
@@ -119,11 +130,44 @@ func Load() (Config, error) {
 		if c.AgencyURLs["ca-ftb"] == "" {
 			c.AgencyURLs["ca-ftb"] = "http://localhost:9102"
 		}
+		if c.AgencyURLs["ny-dtf"] == "" {
+			c.AgencyURLs["ny-dtf"] = "http://localhost:9103"
+		}
 	}
 	if c.BatchShardIndex < 0 || c.BatchShardIndex >= c.BatchShards {
 		return c, fmt.Errorf("batch shard index %d is outside 0..%d", c.BatchShardIndex, c.BatchShards-1)
 	}
+	proxies, err := prefixes(get("TRUSTED_PROXIES", defaultTrustedProxies))
+	if err != nil {
+		return c, fmt.Errorf("TRUSTED_PROXIES: %w", err)
+	}
+	c.TrustedProxies = proxies
 	return c, nil
+}
+
+// prefixes parses a comma-separated list of CIDR ranges. A bare address counts as a single host.
+func prefixes(list string) ([]netip.Prefix, error) {
+	var out []netip.Prefix
+	for _, s := range strings.Split(list, ",") {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if !strings.Contains(s, "/") {
+			addr, err := netip.ParseAddr(s)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, netip.PrefixFrom(addr, addr.BitLen()))
+			continue
+		}
+		p, err := netip.ParsePrefix(s)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p.Masked())
+	}
+	return out, nil
 }
 
 // RequireDatabase checks the settings every database-backed command needs. The agency mock

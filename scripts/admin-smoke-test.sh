@@ -37,19 +37,34 @@ check "anonymous can't use admin API" "$(code anon "$BASE/api/admin/returns")" 4
 check "admin login" "$(code admin -X POST -d "$(creds admin 0)" "$BASE/api/auth/login")" 200
 check "admin role reported" "$(call admin "$BASE/api/auth/me" | field "['role']")" admin
 
-echo "Change a return's status at the agency"
+# Both taxpayers file with the same bank account, so clear each one's returns up front: taxpayer 2's
+# return from an earlier run would otherwise get taxpayer 1's return held as its duplicate.
+check "taxpayer 2 login" "$(code t2 -X POST -d "$(creds taxpayer 1)" "$BASE/api/auth/login")" 200
 code t1 -X DELETE "$BASE/api/returns" >/dev/null
+code t2 -X DELETE "$BASE/api/returns" >/dev/null
+
+echo "Change a return's status at the agency"
 check "taxpayer files a 1040" "$(code t1 -X POST -d "$F" "$BASE/api/returns/1040")" 201
 wait_for "return transmitted" "$T1" 1040 "r['submissionId'] and r['status']=='processing'"
 ID=$(row "$T1" 1040 | field "['id']")
-check "admin sets Action required" "$(code admin -X PUT -d '{"status":"action_required"}' "$BASE/api/admin/returns/$ID/agency-status")" 200
+check "Action required without a message is refused" "$(code admin -X PUT -d '{"status":"action_required"}' "$BASE/api/admin/returns/$ID/agency-status")" 422
+check "admin sets Action required with a message" "$(code admin -X PUT -d '{"status":"action_required","message":"Send copies of your W-2 forms."}' "$BASE/api/admin/returns/$ID/agency-status")" 200
 check "agency reports it as set by admin" "$(row "$T1" 1040 | field "['agencyStatus']['manual']")" True
-wait_for "batch syncs Action needed" "$T1" 1040 "r['status']=='action_needed'"
-check "taxpayer sees Action needed" "$(call t1 "$BASE/api/returns" | field "['returns'][0]['status']")" action_needed
-check "admin sets Approved with a payment date" "$(code admin -X PUT -d '{"status":"approved","paymentDate":"2026-11-02"}' "$BASE/api/admin/returns/$ID/agency-status")" 200
-wait_for "batch syncs Approved" "$T1" 1040 "r['status']=='approved' and r['expectedPaymentDate']=='2026-11-02'"
-check "admin sets Sent" "$(code admin -X PUT -d '{"status":"sent"}' "$BASE/api/admin/returns/$ID/agency-status")" 200
-wait_for "batch syncs Sent (final)" "$T1" 1040 "r['status']=='sent' and r['nextCheckAt'] is None"
+check "taxpayer sees Action needed immediately" "$(call t1 "$BASE/api/returns" | field "['returns'][0]['status']")" action_needed
+check "taxpayer sees the agency's message" "$(call t1 "$BASE/api/returns" | field "['returns'][0]['events'][-1]['note']")" "The IRS needs more information: Send copies of your W-2 forms."
+check "Approved without a payment date is refused" "$(code admin -X PUT -d '{"status":"approved"}' "$BASE/api/admin/returns/$ID/agency-status")" 422
+check "admin approves the refund as filed" "$(code admin -X PUT -d '{"status":"approved","paymentDate":"2026-11-02"}' "$BASE/api/admin/returns/$ID/agency-status")" 200
+CLAIM=$(row "$T1" 1040 | field "['refund']")
+check "taxpayer sees the refund as filed immediately" "$(call t1 "$BASE/api/returns" | field "['returns'][0]['agencyRefund']")" "$CLAIM"
+check "taxpayer sees the payment date" "$(call t1 "$BASE/api/returns" | field "['returns'][0]['expectedPaymentDate']")" 2026-11-02
+check "Refund adjusted without a reason is refused" "$(code admin -X PUT -d '{"status":"adjusted","refundAmount":321,"paymentDate":"2026-10-30"}' "$BASE/api/admin/returns/$ID/agency-status")" 422
+check "Refund adjusted to the amount as filed is refused" "$(code admin -X PUT -d "{\"status\":\"adjusted\",\"refundAmount\":$CLAIM,\"paymentDate\":\"2026-10-30\",\"message\":\"We corrected a math error on your return.\"}" "$BASE/api/admin/returns/$ID/agency-status")" 422
+check "a windfall refund is refused" "$(code admin -X PUT -d '{"status":"adjusted","refundAmount":999999,"paymentDate":"2026-10-30","message":"We found a credit you are eligible for."}' "$BASE/api/admin/returns/$ID/agency-status")" 422
+check "admin sends an adjusted refund with a reason" "$(code admin -X PUT -d '{"status":"adjusted","refundAmount":321,"paymentDate":"2026-10-30","message":"We corrected a math error on your return."}' "$BASE/api/admin/returns/$ID/agency-status")" 200
+wait_for "Refund adjusted is final" "$T1" 1040 "r['status']=='adjusted' and r['nextCheckAt'] is None and r['agencyRefund']==321"
+check "taxpayer sees amount and reason" "$(call t1 "$BASE/api/returns" | field "['returns'][0]['events'][-1]['note']")" "The IRS adjusted your refund to \$321 and sent it by direct deposit. We corrected a math error on your return."
+check "admin sets Refund sent" "$(code admin -X PUT -d '{"status":"sent","paymentDate":"2026-10-30"}' "$BASE/api/admin/returns/$ID/agency-status")" 200
+wait_for "Refund sent is the amount as filed" "$T1" 1040 "r['status']=='sent' and r['agencyRefund']==$CLAIM"
 check "admin moves it back to Processing" "$(code admin -X PUT -d '{"status":"processing"}' "$BASE/api/admin/returns/$ID/agency-status")" 200
 wait_for "a final return is re-synced after an admin change" "$T1" 1040 "r['status']=='processing'"
 check "invalid status refused" "$(code admin -X PUT -d '{"status":"accepted"}' "$BASE/api/admin/returns/$ID/agency-status")" 422
@@ -58,8 +73,6 @@ check "agency back on automatic" "$(row "$T1" 1040 | field "['agencyStatus']['ma
 check "check now" "$(code admin -X POST "$BASE/api/admin/returns/$ID/check-now")" 200
 
 echo "Release a return held by duplicate screening"
-check "taxpayer 2 login" "$(code t2 -X POST -d "$(creds taxpayer 1)" "$BASE/api/auth/login")" 200
-code t2 -X DELETE "$BASE/api/returns" >/dev/null
 check "taxpayer 2 files the same 1040 (same bank account)" "$(code t2 -X POST -d "$F" "$BASE/api/returns/1040")" 201
 wait_for "held by duplicate screening" "$T2" 1040 "r['held']"
 ID2=$(row "$T2" 1040 | field "['id']")

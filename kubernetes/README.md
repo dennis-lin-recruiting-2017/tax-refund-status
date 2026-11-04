@@ -21,8 +21,8 @@ Defaults to Docker Desktop's built-in cluster, which can run locally built image
 | `postgres` StatefulSet | 1 | `pgvector/pgvector:pg17`, 1 Gi PVC |
 | `backend` Deployment | 2 | `taxrefund serve`. An init container runs `taxrefund migrate` (advisory-locked, so concurrent pods are safe). |
 | `processor` Deployment | 2 | `taxrefund process`: duplicate screening, then transmission to the agency. Leases and `SKIP LOCKED` mean replicas never transmit the same return. |
-| `batch-federal`, `batch-ca` CronJobs | 2 shards per run | `taxrefund batch-run <jurisdiction>` every minute as an Indexed Job; each pod checks its hash shard. `concurrencyPolicy: Forbid`. |
-| `agency-irs`, `agency-ca-ftb` Deployments | 1 each | Mock agency APIs (`taxrefund agency`) |
+| `batch-federal`, `batch-ca`, `batch-ny` CronJobs | 2 shards per run | `taxrefund batch-run <jurisdiction>` every minute as an Indexed Job; each pod checks its hash shard. `concurrencyPolicy: Forbid`. |
+| `agency-irs`, `agency-ca-ftb`, `agency-ny-dtf` Deployments | 1 each | Mock agency APIs (`taxrefund agency`) |
 | `jaeger` Deployment | 1 | Jaeger 2 all-in-one, in-memory; receives OTLP on 4318 |
 | `frontend` Deployment | 2 | nginx serving the portal and proxying `/api` to the `backend` Service |
 

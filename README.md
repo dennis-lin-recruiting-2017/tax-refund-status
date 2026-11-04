@@ -1,6 +1,6 @@
 # Tax Refund Status
 
-A system that lets taxpayers check the status of their most recent tax refund after filing, designed for ~40 million customers a season. This repo holds the design documentation and a working demo: a taxpayer signs in, files a sample federal Form 1040 and California Form 540, and watches each refund move through processing as batch runs check with the (mock) IRS and California FTB. Every service is traced with OpenTelemetry and Jaeger.
+A system that lets taxpayers check the status of their most recent tax refund after filing, designed for ~40 million customers a season. This repo holds the design documentation and a working demo: a taxpayer signs in, files a federal Form 1040 and a California Form 540 or New York Form IT-201, and watches each refund move through processing as batch runs check with the (mock) IRS, California FTB, and New York DTF. Every service is traced with OpenTelemetry and Jaeger.
 
 ## Layout
 
@@ -17,7 +17,7 @@ browser ──> frontend (nginx or Vite) ──/api──> API (Go: serve) ─�
                                                processor (Go: process) ──┤   screens new returns, transmits them
                                                batch runs (Go: batch-*) ─┘   poll agency status in bulk, on a schedule
                                                     │
-                                                    └──> agency-irs, agency-ca-ftb (mock agency APIs)
+                                                    └──> agency-irs, agency-ca-ftb, agency-ny-dtf (mock agency APIs)
 all services ──OTLP──> Jaeger
 ```
 
@@ -65,6 +65,14 @@ make k8s-forward
 
 Open http://localhost:8090. For Jaeger, run `make k8s-jaeger` and open http://localhost:16687. Batch runs are CronJobs; `make k8s-batch` shows recent runs. See [kubernetes/README.md](kubernetes/README.md).
 
+### Start over
+
+```bash
+make reset-db
+```
+
+Wipes every table (returns, sessions, audit log, admin overrides) and re-seeds the demo accounts. `make k8s-reset-db` does the same on Kubernetes. Both ask for confirmation; run `scripts/reset-db.sh [local|k8s] -y` to skip it.
+
 ### Check it works
 
 ```bash
@@ -75,11 +83,11 @@ Use `make smoke-integration` or `make k8s-smoke` for the other modes, and `make 
 
 ## The demo workflow
 
-1. **Sign in** with a seeded demo account. Accounts are in [`backend/internal/store/demo-users.json`](backend/internal/store/demo-users.json).
-2. **File Form 1040, then CA Form 540.** Use **Use sample W-2** to fill realistic numbers, **Review** to see the server-side calculation, then **Submit return**.
+1. **Sign in** as `tester00@test.com`–`tester09@test.com` (1040 + CA Form 540) or `tester10@test.com`–`tester19@test.com` (1040 + NY Form IT-201). Every demo account's password is `test`. Accounts are defined in [`backend/internal/store/demo-users.json`](backend/internal/store/demo-users.json) and updated to match it whenever the backend starts.
+2. **File both returns.** Each tester's forms open pre-filled with their own W-2 and bank account: click **Review** to see the server-side calculation, then **Submit return**. tester05 and tester15 owe tax; everyone else gets a refund.
 3. **Track status.** Within seconds the processor transmits each return to its agency (**Processing**). From then on, status comes from batch runs that ask the agency in bulk: **Approved**, then **Refund sent** (or **Accepted** when nothing is refunded). Each card shows when the agency was last checked.
-4. **See fraud screening.** Sign in as the second demo user and file a CA 540 with the same figures and bank account. The processor's pgvector nearest-neighbour check holds it as **Action needed** before it's transmitted.
-5. **Change a status yourself.** In a private window, sign in as `demo-admin@interview.com` (password in the same seed file). The admin console at `/admin` lets you play the IRS or California FTB: set any transmitted return to Processing, Approved (with a payment date), Refund sent, Accepted, or Action required, and release returns held by duplicate screening. The change is made at the mock agency; the taxpayer sees it after the next batch run.
+4. **See fraud screening.** File a return, then sign in as another tester in the same state, replace their W-2 and bank details with the first tester's, and file. Another taxpayer's near-identical return paying into the same bank account is held as **Action needed**. Testers with similar incomes but their own accounts are never flagged. The processor's pgvector nearest-neighbour check holds it as **Action needed** before it's transmitted.
+5. **Change a status yourself.** In a private window, sign in as `admin@test.com` (password `test`). The admin console at `/admin` lists every taxpayer who has filed and lets you play the IRS, California FTB, or New York DTF: set a return to Processing, Approved or Refund sent (with a refund amount and date), Accepted (with a balance due), or Action required (with a message), and release returns held by duplicate screening. **Randomize** fills in plausible amounts, dates, and messages. **Send to taxpayer** sets the status at the mock agency and syncs that return immediately, so the taxpayer sees it right away.
 6. **Follow a batch run in Jaeger.** Pick the `refund-batch` service, open a run, and see the agency calls, retries, and database writes in one trace.
 7. **Reset demo returns** at the bottom of the dashboard to file again.
 

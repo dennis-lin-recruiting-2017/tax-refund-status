@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { api, FORM_ORDER, FORMS } from '../api.js'
+import { api, FORMS, formsFor } from '../api.js'
 import { useAuth } from '../auth.jsx'
 import ReturnCard, { FINAL_STATUSES } from '../components/ReturnCard.jsx'
 
@@ -63,7 +63,7 @@ export default function Dashboard() {
         <p className="loading">Loading your returns…</p>
       ) : (
         <div className="returns">
-          {FORM_ORDER.map((id) => FORMS[id]).map((form) =>
+          {formsFor(user).map((id) => FORMS[id]).map((form) =>
             byForm[form.id] ? (
               <ReturnCard key={form.id} ret={byForm[form.id]} />
             ) : (

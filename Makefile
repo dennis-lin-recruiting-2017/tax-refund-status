@@ -16,8 +16,8 @@ OVERLAY      = build/k8s
 # images (Docker Desktop can). e.g. K8S_LOAD="kind load docker-image" or "minikube image load"
 K8S_LOAD    ?=
 
-.PHONY: help dev dev-db dev-backend dev-frontend install test smoke smoke-admin smoke-integration \
-        up down logs clean images k8s-deploy k8s-status k8s-forward k8s-jaeger k8s-batch k8s-smoke k8s-delete
+.PHONY: help dev dev-db dev-backend dev-frontend install test reset-db smoke smoke-admin smoke-integration \
+        up down logs clean images k8s-deploy k8s-status k8s-forward k8s-jaeger k8s-batch k8s-smoke k8s-reset-db k8s-delete
 
 help:
 	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-18s %s\n", $$1, $$2}'
@@ -43,6 +43,9 @@ dev: dev-db ## Postgres + Jaeger + backend + frontend; open http://localhost:518
 test: ## Go unit tests
 	cd backend && go test ./...
 
+reset-db: ## Wipe the local (Docker/dev) database and re-seed the demo accounts
+	scripts/reset-db.sh local
+
 smoke: ## End-to-end API checks against the dev backend
 	scripts/smoke-test.sh http://localhost:8080
 
@@ -58,7 +61,7 @@ down: ## Stop the Docker stack (keeps the database volume)
 	docker compose down
 
 logs: ## Follow Docker stack logs
-	docker compose logs -f backend processor batch agency-irs agency-ca-ftb frontend
+	docker compose logs -f backend processor batch agency-irs agency-ca-ftb agency-ny-dtf frontend
 
 smoke-integration: ## End-to-end API checks through nginx in Docker
 	scripts/smoke-test.sh http://localhost:8088
@@ -78,7 +81,7 @@ k8s-deploy: images ## Build images and deploy to Kubernetes ($(K8S_CONTEXT)) in 
 	@printf 'apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources: [../../kubernetes]\nimages:\n  - {name: tax-refund-backend, newTag: "$(TAG)"}\n  - {name: tax-refund-frontend, newTag: "$(TAG)"}\n' > $(OVERLAY)/kustomization.yaml
 	$(KUBECTL) apply -k $(OVERLAY)
 	$(KUBECTL) -n $(K8S_NS) rollout status statefulset/postgres --timeout=180s
-	$(KUBECTL) -n $(K8S_NS) rollout status deploy/jaeger deploy/agency-irs deploy/agency-ca-ftb deploy/backend deploy/processor deploy/frontend --timeout=180s
+	$(KUBECTL) -n $(K8S_NS) rollout status deploy/jaeger deploy/agency-irs deploy/agency-ca-ftb deploy/agency-ny-dtf deploy/backend deploy/processor deploy/frontend --timeout=180s
 
 k8s-status: ## Show pods and services
 	$(KUBECTL) -n $(K8S_NS) get pods,svc,pvc
@@ -95,6 +98,9 @@ k8s-batch: ## Show recent batch runs (CronJob history and the batch_runs table)
 
 k8s-smoke: ## End-to-end API checks through the port-forward
 	scripts/smoke-test.sh http://localhost:8090
+
+k8s-reset-db: ## Wipe the Kubernetes database and re-seed the demo accounts
+	K8S_CONTEXT=$(K8S_CONTEXT) K8S_NS=$(K8S_NS) scripts/reset-db.sh k8s
 
 k8s-delete: ## Delete the namespace and everything in it
 	$(KUBECTL) delete namespace $(K8S_NS) --ignore-not-found

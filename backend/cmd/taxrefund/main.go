@@ -4,9 +4,9 @@
 //	taxrefund process         screen new returns and transmit them to the agencies
 //	taxrefund batch-run [j]   one batch status run for jurisdiction j (default: all), then exit
 //	taxrefund batch-schedule  batch runs on a fixed interval (dev and Docker Compose)
-//	taxrefund agency          a mock tax agency API (AGENCY=irs or ca-ftb)
+//	taxrefund agency          a mock tax agency API (AGENCY=irs, ca-ftb, or ny-dtf)
 //	taxrefund migrate         apply migrations and seed demo users, then exit
-//	taxrefund all             everything above in one process, including both agency mocks
+//	taxrefund all             everything above in one process, including the three agency mocks
 //	taxrefund healthcheck     exit 0 if the local API answers (for distroless health checks)
 package main
 
@@ -187,7 +187,7 @@ func (a *app) runAll(ctx context.Context) error {
 	}
 	g, ctx := errgroup.WithContext(ctx)
 
-	for _, m := range []struct{ agency, addr string }{{"irs", ":9101"}, {"ca-ftb", ":9102"}} {
+	for _, m := range []struct{ agency, addr string }{{"irs", ":9101"}, {"ca-ftb", ":9102"}, {"ny-dtf", ":9103"}} {
 		mc := cfg.Mock
 		mc.Agency, mc.Addr = m.agency, m.addr
 		p, err := a.provider(ctx, "agency-"+m.agency)
@@ -256,6 +256,10 @@ func agencyClients(cfg config.Config, p telemetry.Provider, shards int) (map[str
 
 func migrate(ctx context.Context, pool *pgxpool.Pool, cfg config.Config) error {
 	if err := store.Migrate(ctx, pool); err != nil {
+		return err
+	}
+	// The mock agencies' own table, so a freshly reset database works without restarting them.
+	if _, err := agencymock.NewOverrides(ctx, pool); err != nil {
 		return err
 	}
 	if cfg.SeedDemoUsers {

@@ -35,6 +35,7 @@ type Jurisdiction struct {
 var Jurisdictions = []Jurisdiction{
 	{Code: "federal", Agency: "irs", Name: "IRS"},
 	{Code: "CA", Agency: "ca-ftb", Name: "California FTB"},
+	{Code: "NY", Agency: "ny-dtf", Name: "New York DTF"},
 }
 
 func Lookup(code string) (Jurisdiction, bool) {
@@ -62,10 +63,23 @@ type SubmitResponse struct {
 
 type StatusResult struct {
 	SubmissionID string    `json:"submissionId"`
-	Status       string    `json:"status"` // received, processing, approved, sent, accepted, action_required, not_found
+	Status       string    `json:"status"` // received, processing, approved, sent, adjusted, accepted, action_required, not_found
 	PaymentDate  string    `json:"paymentDate,omitempty"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 	Manual       bool      `json:"manual,omitempty"` // mock only: set by an operator, not the automatic timeline
+	// Details an agency may attach. Amounts are whole dollars; absent means "as filed".
+	RefundAmount *int64 `json:"refundAmount,omitempty"` // the refund approved or sent; differs from the claim only when adjusted
+	AmountOwed   *int64 `json:"amountOwed,omitempty"`   // balance due on an accepted return
+	Message      string `json:"message,omitempty"`      // what the agency tells the taxpayer
+}
+
+// StatusOverride is what a demo operator sets at the mock agency.
+type StatusOverride struct {
+	Status       string `json:"status"`
+	PaymentDate  string `json:"paymentDate,omitempty"`
+	RefundAmount *int64 `json:"refundAmount,omitempty"`
+	AmountOwed   *int64 `json:"amountOwed,omitempty"`
+	Message      string `json:"message,omitempty"`
 }
 
 type statusRequest struct {
@@ -114,11 +128,11 @@ func (c *Client) WithAdminKey(key string) *Client {
 	return c
 }
 
-// SetStatus pins a submission to a status at the mock agency (demo operator only).
-func (c *Client) SetStatus(ctx context.Context, submissionID, status, paymentDate string) (StatusResult, error) {
+// SetStatus pins a submission to a status, with any amounts and message, at the mock agency
+// (demo operator only).
+func (c *Client) SetStatus(ctx context.Context, submissionID string, o StatusOverride) (StatusResult, error) {
 	var out StatusResult
-	body := map[string]string{"status": status, "paymentDate": paymentDate}
-	err := c.do(ctx, http.MethodPut, "/v1/admin/submissions/"+url.PathEscape(submissionID), c.adminKey, body, &out)
+	err := c.do(ctx, http.MethodPut, "/v1/admin/submissions/"+url.PathEscape(submissionID), c.adminKey, o, &out)
 	return out, err
 }
 

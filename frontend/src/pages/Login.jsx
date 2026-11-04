@@ -55,7 +55,9 @@ export default function Login() {
           </button>
         </form>
         <p className="hint">
-          Demo accounts are seeded from <code>backend/internal/store/demo-users.json</code>.
+          Demo accounts: <code>tester00@test.com</code> to <code>tester09@test.com</code> (federal + California),{' '}
+          <code>tester10@test.com</code> to <code>tester19@test.com</code> (federal + New York), and{' '}
+          <code>admin@test.com</code>. The password for all of them is <code>test</code>.
         </p>
       </div>
     </div>

@@ -13,7 +13,10 @@ import (
 type Override struct {
 	SubmissionID string
 	Status       string
-	PaymentDate  string // YYYY-MM-DD, approved/sent only
+	PaymentDate  string // YYYY-MM-DD, approved/sent/adjusted only
+	RefundAmount *int64 // whole dollars
+	AmountOwed   *int64
+	Message      string
 	UpdatedAt    time.Time
 }
 
@@ -35,7 +38,11 @@ func NewOverrides(ctx context.Context, pool *pgxpool.Pool) (*Overrides, error) {
 				status        text NOT NULL,
 				payment_date  date,
 				updated_at    timestamptz NOT NULL DEFAULT now()
-			)`)
+			);
+			ALTER TABLE agency_mock.status_overrides
+				ADD COLUMN IF NOT EXISTS refund_amount bigint,
+				ADD COLUMN IF NOT EXISTS amount_owed   bigint,
+				ADD COLUMN IF NOT EXISTS message       text`)
 		return err
 	})
 	if err != nil {
@@ -45,14 +52,15 @@ func NewOverrides(ctx context.Context, pool *pgxpool.Pool) (*Overrides, error) {
 }
 
 func (o *Overrides) Get(ctx context.Context, ids []string) (map[string]Override, error) {
-	rows, err := o.pool.Query(ctx, `SELECT submission_id, status, COALESCE(to_char(payment_date, 'YYYY-MM-DD'), ''), updated_at
+	rows, err := o.pool.Query(ctx, `SELECT submission_id, status, COALESCE(to_char(payment_date, 'YYYY-MM-DD'), ''),
+			refund_amount, amount_owed, COALESCE(message, ''), updated_at
 		FROM agency_mock.status_overrides WHERE submission_id = ANY($1)`, ids)
 	if err != nil {
 		return nil, err
 	}
 	list, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (Override, error) {
 		var ov Override
-		return ov, r.Scan(&ov.SubmissionID, &ov.Status, &ov.PaymentDate, &ov.UpdatedAt)
+		return ov, r.Scan(&ov.SubmissionID, &ov.Status, &ov.PaymentDate, &ov.RefundAmount, &ov.AmountOwed, &ov.Message, &ov.UpdatedAt)
 	})
 	out := make(map[string]Override, len(list))
 	for _, ov := range list {
@@ -66,10 +74,17 @@ func (o *Overrides) Set(ctx context.Context, agency string, ov Override) (Overri
 	if ov.PaymentDate != "" {
 		pd = &ov.PaymentDate
 	}
-	err := o.pool.QueryRow(ctx, `INSERT INTO agency_mock.status_overrides (submission_id, agency, status, payment_date)
-		VALUES ($1, $2, $3, $4::date)
-		ON CONFLICT (submission_id) DO UPDATE SET status = EXCLUDED.status, payment_date = EXCLUDED.payment_date, updated_at = now()
-		RETURNING updated_at`, ov.SubmissionID, agency, ov.Status, pd).Scan(&ov.UpdatedAt)
+	var msg *string
+	if ov.Message != "" {
+		msg = &ov.Message
+	}
+	err := o.pool.QueryRow(ctx, `INSERT INTO agency_mock.status_overrides
+			(submission_id, agency, status, payment_date, refund_amount, amount_owed, message)
+		VALUES ($1, $2, $3, $4::date, $5, $6, $7)
+		ON CONFLICT (submission_id) DO UPDATE SET status = EXCLUDED.status, payment_date = EXCLUDED.payment_date,
+			refund_amount = EXCLUDED.refund_amount, amount_owed = EXCLUDED.amount_owed, message = EXCLUDED.message,
+			updated_at = now()
+		RETURNING updated_at`, ov.SubmissionID, agency, ov.Status, pd, ov.RefundAmount, ov.AmountOwed, msg).Scan(&ov.UpdatedAt)
 	return ov, err
 }
 

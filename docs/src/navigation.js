@@ -5,34 +5,42 @@
 export const navTree = [
   { id: 'overview', title: 'Overview', path: '/overview' },
   {
-    id: 'requirements',
-    title: 'Requirements',
-    path: '/requirements',
+    id: 'technical-design',
+    title: 'Technical Design',
+    path: '/technical-design',
     children: [
       {
-        id: 'functional',
-        title: 'Functional',
-        path: '/requirements/functional',
+        id: 'requirements',
+        title: 'Requirements',
+        path: '/technical-design/requirements',
         children: [
           {
-            id: 'status-lookup',
-            title: 'Refund Status Lookup',
-            path: '/requirements/functional/status-lookup',
+            id: 'functional',
+            title: 'Functional',
+            path: '/technical-design/requirements/functional',
             children: [
-              { id: 'identity', title: 'Identity Verification', path: '/requirements/functional/status-lookup/identity' },
-              { id: 'status-states', title: 'Status States', path: '/requirements/functional/status-lookup/states' },
+              {
+                id: 'status-lookup',
+                title: 'Refund Status Lookup',
+                path: '/technical-design/requirements/functional/status-lookup',
+                children: [
+                  { id: 'identity', title: 'Identity Verification', path: '/technical-design/requirements/functional/status-lookup/identity' },
+                  { id: 'status-states', title: 'Status States', path: '/technical-design/requirements/functional/status-lookup/states' },
+                ],
+              },
+              { id: 'notifications', title: 'Notifications', path: '/technical-design/requirements/functional/notifications' },
             ],
           },
-          { id: 'notifications', title: 'Notifications', path: '/requirements/functional/notifications' },
-        ],
-      },
-      {
-        id: 'non-functional',
-        title: 'Non-Functional',
-        path: '/requirements/non-functional',
-        children: [
-          { id: 'availability', title: 'Availability & Latency', path: '/requirements/non-functional/availability' },
-          { id: 'capacity', title: 'Capacity Estimates', path: '/requirements/non-functional/capacity' },
+          {
+            id: 'non-functional',
+            title: 'Non-Functional',
+            path: '/technical-design/requirements/non-functional',
+            children: [
+              { id: 'availability', title: 'Availability & Latency', path: '/technical-design/requirements/non-functional/availability' },
+              { id: 'capacity', title: 'Capacity Estimates', path: '/technical-design/requirements/non-functional/capacity' },
+              { id: 'security-requirements', title: 'Security', path: '/technical-design/requirements/non-functional/security' },
+            ],
+          },
         ],
       },
     ],
@@ -92,6 +100,7 @@ export const navTree = [
           },
         ],
       },
+      { id: 'prediction', title: 'Refund Time Prediction', path: '/architecture/prediction' },
       { id: 'apis', title: 'API Design', path: '/architecture/apis' },
     ],
   },
@@ -123,11 +132,12 @@ export const navTree = [
         title: 'Identity & Access',
         path: '/security/identity-access',
         children: [
-          { id: 'taxpayer-verification', title: 'Taxpayer Verification', path: '/security/identity-access/taxpayer' },
-          { id: 'agent-preparer-access', title: 'Agent & Preparer Access', path: '/security/identity-access/agents' },
-          { id: 'service-auth', title: 'Service-to-Service Auth', path: '/security/identity-access/services' },
+          { id: 'taxpayer-verification', title: 'Taxpayer Identity', path: '/security/identity-access/taxpayer' },
+          { id: 'support-agents', title: 'Support Agents', path: '/security/identity-access/agents' },
+          { id: 'preparers', title: 'Preparers', path: '/security/identity-access/preparers' },
         ],
       },
+      { id: 'service-auth', title: 'Service-to-Service Auth', path: '/security/service-auth' },
       {
         id: 'data-protection',
         title: 'Data Protection',
@@ -146,6 +156,7 @@ export const navTree = [
           { id: 'bot-defense', title: 'Bot Defense', path: '/security/abuse-prevention/bot-defense' },
         ],
       },
+      { id: 'security-monitoring', title: 'Security Monitoring', path: '/security/monitoring' },
       { id: 'audit-response', title: 'Audit & Incident Response', path: '/security/audit-response' },
       { id: 'compliance', title: 'Privacy & Compliance', path: '/security/compliance' },
     ],
@@ -157,7 +168,14 @@ export const navTree = [
     children: [
       { id: 'tracing', title: 'Distributed Tracing', path: '/operations/tracing' },
       { id: 'monitoring', title: 'Monitoring & Alerting', path: '/operations/monitoring' },
-      { id: 'peak-season', title: 'Peak Season Readiness', path: '/operations/peak-season' },
+      {
+        id: 'peak-season',
+        title: 'Peak Season Readiness',
+        path: '/operations/peak-season',
+        children: [
+          { id: 'extension-deadline', title: 'Extension Deadline', path: '/operations/peak-season/extension-deadline' },
+        ],
+      },
     ],
   },
   {

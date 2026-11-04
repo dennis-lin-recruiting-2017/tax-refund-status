@@ -23,7 +23,7 @@ F540='{"filingStatus":"single","wages":72000,"withholding":2900,"interest":120,"
 echo "Security checks"
 check "POST without X-Requested-With is rejected" "$(curl -sS -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' "$BASE/api/auth/login")" 403
 check "returns require a session" "$(code anon "$BASE/api/returns")" 401
-check "wrong password is rejected" "$(code anon -X POST -d '{"email":"alex@example.test","password":"nope"}' "$BASE/api/auth/login")" 401
+check "wrong password is rejected" "$(code anon -X POST -d "$(user 0 | sed 's/"password": "[^"]*"/"password": "nope"/')" "$BASE/api/auth/login")" 401
 check "unknown email gets the same response" "$(code anon -X POST -d '{"email":"nobody@example.test","password":"nope"}' "$BASE/api/auth/login")" 401
 
 echo "Taxpayer 1 files"

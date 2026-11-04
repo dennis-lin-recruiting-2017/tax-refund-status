@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { api, FILING_STATUSES, FORMS, formatMoney, SAMPLE_BANK } from '../api.js'
+import { api, FILING_STATUSES, FORMS, formatMoney, formsFor, SAMPLE_BANK } from '../api.js'
 import { useAuth } from '../auth.jsx'
 
 const EMPTY = {
@@ -60,8 +60,34 @@ export default function FileReturn() {
   const [error, setError] = useState('')
   const [estimate, setEstimate] = useState(null)
   const [pending, setPending] = useState(false)
+  const [draft, setDraft] = useState(null) // pre-filled W-2 data for demo accounts
 
-  if (!form) return <Navigate to="/" replace />
+  const allowed = form && formsFor(user).includes(form.id)
+
+  const applyDraft = (d) => {
+    // Leave optional fields blank rather than showing a 0 the tester didn't enter.
+    const toField = (k, v) => (v === undefined || (k === 'itemizedDeductions' && v === 0) ? '' : String(v))
+    setValues(Object.fromEntries(Object.keys(EMPTY).map((k) => [k, toField(k, d[k])])))
+    setErrors({})
+    setEstimate(null)
+  }
+
+  useEffect(() => {
+    if (!allowed) return
+    let cancelled = false
+    api(`/drafts/${form.id}`)
+      .then((d) => {
+        if (cancelled) return
+        setDraft(d)
+        applyDraft(d)
+      })
+      .catch(() => {}) // no pre-filled form for this account: start empty
+    return () => {
+      cancelled = true
+    }
+  }, [allowed, form?.id])
+
+  if (!allowed) return <Navigate to="/" replace />
 
   const onChange = (name, value) => {
     setValues((v) => ({ ...v, [name]: value }))
@@ -114,12 +140,23 @@ export default function FileReturn() {
         {form.subtitle}. Filing as {user.fullName}, tax ID •••-••-{user.taxIdLast4}.
       </p>
 
-      <div className="banner">
-        <strong>Sample data only.</strong> Calculations are simplified for the demo. Use the sample W-2 or made-up numbers.
-        <button type="button" className="btn small secondary" onClick={fillSample}>
-          Use sample W-2
-        </button>
-      </div>
+      {draft ? (
+        <div className="banner">
+          <strong>Ready to submit.</strong> We pre-filled this from the W-2 and bank account on file for this demo account.
+          Review it, then click Review and Submit.
+          <button type="button" className="btn small secondary" onClick={() => applyDraft(draft)}>
+            Reset to W-2
+          </button>
+        </div>
+      ) : (
+        <div className="banner">
+          <strong>Sample data only.</strong> Calculations are simplified for the demo. Use the sample W-2 or made-up
+          numbers.
+          <button type="button" className="btn small secondary" onClick={fillSample}>
+            Use sample W-2
+          </button>
+        </div>
+      )}
 
       <form
         className="panel form wide"

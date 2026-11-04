@@ -7,7 +7,7 @@ export default function AdminConsole() {
       <p className="eyebrow">Demo</p>
       <h1>Admin Console</h1>
       <p className="lede">
-        Play the IRS and the California FTB: change the status of any taxpayer's return, and watch the change reach the
+        Play the IRS, the California FTB, or the New York DTF: change the status of any taxpayer's return, and watch the change reach the
         taxpayer through a batch run.
       </p>
 
@@ -16,7 +16,7 @@ export default function AdminConsole() {
         <p>
           The IRS and the states don't offer an API for refund status. The demo's mock agencies stand in for them, and
           the admin console lets you decide what they say instead of waiting for their automatic timeline. That makes it
-          easy to show any situation on demand: an approval, a payment date, a refund sent, or a request for more
+          easy to show any situation on demand: an approval, a refund sent as filed, an adjusted refund, or a request for more
           information.
         </p>
       </section>
@@ -26,49 +26,119 @@ export default function AdminConsole() {
         <p>
           Open the portal (<a href="http://localhost:8090">localhost:8090</a> on Kubernetes,{' '}
           <a href="http://localhost:8088">localhost:8088</a> in Docker, <a href="http://localhost:5180">localhost:5180</a>{' '}
-          in dev mode) and sign in as <code>demo-admin@interview.com</code>. The password is in{' '}
-          <code>backend/internal/store/demo-users.json</code>. Admins go straight to the console at <code>/admin</code>.
+          in dev mode) and sign in as <code>admin@test.com</code> with the password <code>test</code>. Admins
+          go straight to the console at <code>/admin</code>.
         </p>
       </section>
 
       <section>
         <h2>Reading a return</h2>
+        <p>
+          The console lists every taxpayer who has sent in a return, newest activity first, with their federal and state
+          returns underneath.
+        </p>
         <table className="metrics">
           <thead>
             <tr><th>Column</th><th>Means</th></tr>
           </thead>
           <tbody>
             <tr>
-              <td>Taxpayer sees (synced by batch)</td>
-              <td>The status in our database: what the taxpayer's dashboard shows, with when we last checked the agency and when we'll check next.</td>
+              <td>Taxpayer sees</td>
+              <td>
+                The status in our database, the amount if the agency set one, and the latest message: exactly what the
+                taxpayer's dashboard shows. Also when we last checked the agency and when we'll check next.
+              </td>
             </tr>
             <tr>
               <td>Agency has (live)</td>
-              <td>What the mock agency says right now, and whether that's its <em>Automatic</em> timeline or <em>Set by admin</em>.</td>
-            </tr>
-            <tr>
-              <td>Yellow note</td>
-              <td>The two differ. The taxpayer will see the agency's status after the next batch run.</td>
+              <td>
+                What the mock agency says right now, including any refund amount, balance due, payment date, and message,
+                and whether that's its <em>Automatic</em> timeline or <em>Set by admin</em>.
+              </td>
             </tr>
           </tbody>
         </table>
       </section>
 
       <section>
-        <h2>Actions</h2>
+        <h2>Sending a status</h2>
+        <p>Choose a status, fill in what it needs, and click <strong>Send to taxpayer</strong>.</p>
+        <table className="metrics">
+          <thead>
+            <tr><th>Status</th><th>Details sent to the taxpayer</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Received, Processing</td><td>Optional message</td></tr>
+            <tr><td>Approved</td><td>The refund as filed, with an expected payment date (required), optional message</td></tr>
+            <tr><td>Refund sent</td><td>The refund as filed, deposited on a date (required), optional message</td></tr>
+            <tr>
+              <td>Refund adjusted</td>
+              <td>
+                A refund different from the claim, its deposit date, and why it changed (all required). Sending the
+                amount as filed is refused: that's Refund sent.
+              </td>
+            </tr>
+            <tr><td>Accepted (returns with no refund)</td><td>Balance due, optional message</td></tr>
+            <tr><td>Action required</td><td>A message saying what the agency needs (required)</td></tr>
+          </tbody>
+        </table>
+        <p>
+          <strong>Send to taxpayer</strong> sets the status at the mock agency and immediately runs a status check for
+          that one return, through the same code path as batch runs, so the taxpayer's dashboard updates right away.
+          If that check can't run (say the agency mock is restarting), the return is left due and the next batch run
+          delivers it.
+        </p>
+      </section>
+
+      <section>
+        <h2>Randomize</h2>
+        <p>
+          <strong>Randomize</strong> appears for statuses with details, and fills them with a plausible agency decision.
+          Edit anything before sending.
+        </p>
+        <table className="metrics">
+          <thead>
+            <tr><th>Status</th><th>What it picks</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Approved</td><td>A payment date 5–21 days from today.</td></tr>
+            <tr><td>Refund sent</td><td>A deposit date 0–3 days ago.</td></tr>
+            <tr>
+              <td>Refund adjusted</td>
+              <td>
+                80–105% of the claim (never exactly the claim), with a matching reason (a math error, an offset for a
+                past-due debt, an adjusted or newly found credit). Deposited 0–3 days ago.
+              </td>
+            </tr>
+            <tr>
+              <td>Accepted</td>
+              <td>The balance as filed, up to 10% higher, with a reminder to pay by April 15.</td>
+            </tr>
+            <tr>
+              <td>Action required</td>
+              <td>
+                One of several realistic requests: verify identity, send W-2 copies, confirm the bank account, document
+                dependents, or resolve a duplicate return.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          The server enforces limits whatever the console sends: adjusted refunds between $1 and the larger of 150% of the claim
+          or the claim plus $1,000; a balance due between $0 and the larger of twice the filed balance or $5,000 over
+          it; messages of at most 500 characters, and at least 10 for Refund adjusted and Action required.
+        </p>
+      </section>
+
+      <section>
+        <h2>Other actions</h2>
         <dl className="trouble">
-          <dt>Set at agency</dt>
-          <dd>
-            Pins the return to a status at its agency: Received, Processing, Approved (with a payment date), Refund sent,
-            Accepted (for returns with no refund), or Action required. Approved and Refund sent are only offered when
-            there's a refund.
-          </dd>
           <dt>Resume automatic</dt>
           <dd>Removes your override, so the agency goes back to its automatic timeline for that return.</dd>
           <dt>Check now</dt>
           <dd>
-            Makes the return due immediately, so the very next batch run checks it. Setting or clearing a status does
-            this for you. It also works on returns in a final status, which batch runs otherwise stop checking.
+            Checks the return with its agency right away. It also works on returns in a final status, which batch runs
+            otherwise stop checking.
           </dd>
           <dt>Identity verified: release and send</dt>
           <dd>
@@ -81,24 +151,25 @@ export default function AdminConsole() {
       <section>
         <h2>A walkthrough</h2>
         <ol className="points">
-          <li>In one browser window, sign in as a taxpayer and file a Form 1040 with the sample W-2.</li>
-          <li>In a private window, sign in as the admin. The new return is at the top of the list.</li>
+          <li>In one browser window, sign in as <code>tester00@test.com</code> and submit the pre-filled Form 1040.</li>
+          <li>In a private window, sign in as <code>admin@test.com</code>. Tester 00 is at the top of the list.</li>
           <li>
-            Set it to <strong>Action required</strong>. The yellow note appears; within one batch run (15 seconds in
-            Docker and dev mode, up to a minute on Kubernetes) the taxpayer's card changes to <em>Action needed</em>:
-            "The IRS needs more information…"
+            Choose <strong>Action required</strong>, click <strong>Randomize</strong>, then <strong>Send to
+            taxpayer</strong>. Refresh the taxpayer's window: the card shows <em>Action needed</em> with the agency's
+            request.
           </li>
           <li>
-            Set it to <strong>Approved</strong> with a payment date a week out. The taxpayer sees the approval and the
-            expected deposit date.
+            Choose <strong>Approved</strong>, click <strong>Randomize</strong>, and send. The taxpayer sees their refund
+            and the expected payment date.
           </li>
           <li>
-            Set it to <strong>Refund sent</strong>. That's a final status, so batch runs stop checking it, until you
-            change it again.
+            Choose <strong>Refund adjusted</strong>, click <strong>Randomize</strong>, and send. The taxpayer sees
+            "Adjusted refund", what they claimed, and the reason. Choose <strong>Refund sent</strong> instead for a
+            refund paid as filed. Both are final, so batch runs stop checking the return until you change it again.
           </li>
           <li>
-            Open Jaeger and find the <code>refund-api</code> trace for <code>PUT /api/admin/returns/…/agency-status</code>{' '}
-            to see the call to the agency, then the next <code>refund-batch</code> run that picked up the change.
+            Open Jaeger and find the <code>refund-api</code> trace for <code>PUT /api/admin/returns/…/agency-status</code>:
+            the call to the agency, then the <code>batch.check_one</code> sync that delivered it.
           </li>
         </ol>
         <div className="note">
@@ -112,16 +183,19 @@ export default function AdminConsole() {
         <ul className="points">
           <li>
             The console calls admin endpoints on our API, which only accept users with the <code>admin</code> role. Every
-            action is written to <code>audit_log</code> with the admin's ID.
+            action is written to <code>audit_log</code> with the admin's ID, and so is every search and every return an
+            admin is shown (<code>admin_view_returns</code>). The page refreshes every 5 seconds, so a view is logged
+            once per admin every 15 minutes rather than on every refresh.
           </li>
           <li>
             The API forwards status changes to the mock agency's operator endpoints, using a separate key
-            (<code>AGENCY_ADMIN_KEY</code>) that batch runs and the processor never hold.
+            (<code>AGENCY_ADMIN_KEY</code>) that only the admin endpoints use. In the demo every workload still loads it
+            from the shared secret; see <Link to="/security/service-auth">Service-to-Service Auth</Link>.
           </li>
           <li>
             The mock agency stores overrides in its own <code>agency_mock</code> schema. Our own tables are never edited
-            directly: the batch run reads the agency's new status and updates them, the same path a real change would
-            take.
+            directly: a status check reads the agency's new status, amount, and message and updates them, the same path
+            a real change would take.
           </li>
         </ul>
         <CodeBlock label="Recent admin actions">{`SELECT a.action, u.email, a.detail, a.created_at

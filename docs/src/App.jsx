@@ -4,23 +4,35 @@ import NavTree from './components/NavTree.jsx'
 import { flatten, navTree } from './navigation.js'
 import Overview from './pages/Overview.jsx'
 import Placeholder from './pages/Placeholder.jsx'
-import Security from './pages/Security.jsx'
+import { securityPages } from './pages/Security.jsx'
 import Demo from './pages/Demo.jsx'
 import Capacity from './pages/Capacity.jsx'
+import ApiGateway from './pages/ApiGateway.jsx'
+import SecurityRequirements from './pages/SecurityRequirements.jsx'
 import { batchSyncPages } from './pages/BatchSync.jsx'
 import Tracing from './pages/Tracing.jsx'
+import { operationsPages } from './pages/Operations.jsx'
+import { predictionPages } from './pages/Prediction.jsx'
+import { attackSurfacePages } from './pages/AttackSurfaces.jsx'
 import AdminConsole from './pages/AdminConsole.jsx'
+import HighLevelDesign from './pages/HighLevelDesign.jsx'
 import { localDevelopmentPages } from './pages/LocalDevelopment.jsx'
 import { localKubernetesPages } from './pages/LocalKubernetes.jsx'
 
 // Pages that have real content. Everything else in the nav renders a placeholder.
 const pages = {
   overview: Overview,
-  security: Security,
+  ...securityPages,
   demo: Demo,
   capacity: Capacity,
+  gateway: ApiGateway,
+  'security-requirements': SecurityRequirements,
   tracing: Tracing,
+  ...operationsPages,
+  ...predictionPages,
+  ...attackSurfacePages,
   'admin-console': AdminConsole,
+  'high-level': HighLevelDesign,
   ...batchSyncPages,
   ...localKubernetesPages,
   ...localDevelopmentPages,

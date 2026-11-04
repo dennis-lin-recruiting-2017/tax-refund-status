@@ -14,7 +14,7 @@ type loginRequest struct {
 const loginFailed = "We couldn't sign you in with those details. Check them and try again, or wait 15 minutes if you've tried several times."
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
-	if !s.login.Allow(clientIP(r)) {
+	if !s.login.Allow(s.clientIP(r)) {
 		w.Header().Set("Retry-After", "300")
 		writeError(w, http.StatusTooManyRequests, "Too many sign-in attempts. Wait a few minutes and try again.")
 		return

@@ -78,7 +78,7 @@ function Overview() {
           </li>
           <li>
             <strong>Customer traffic is spiky; agency capacity isn't.</strong> Reads peak at ~1,000 a second on
-            refund-release mornings (see <Link to="/requirements/non-functional/capacity">Capacity Estimates</Link>).
+            refund-release mornings (see <Link to="/technical-design/requirements/non-functional/capacity">Capacity Estimates</Link>).
             Passing those through would exceed agency rate limits exactly when customers care most.
           </li>
           <li>
@@ -127,7 +127,7 @@ function Overview() {
       <section>
         <h2>In the demo</h2>
         <p>
-          The demo runs the same design with mock IRS and California FTB services and compressed timing: runs every
+          The demo runs the same design with mock IRS, California FTB, and New York DTF services and compressed timing: runs every
           minute on Kubernetes (every 15 seconds in Docker and dev mode) instead of a few times a day. Try it in{' '}
           <Link to="/demo/local-kubernetes">Local Kubernetes</Link>.
         </p>
@@ -193,7 +193,7 @@ function Scheduling() {
         <p>
           Up to 10% random jitter is added to each due time, so millions of returns filed on the same day don't all come
           due in the same second. This policy is what brings agency lookups from ~140M to ~50M on a peak day (see{' '}
-          <Link to="/requirements/non-functional/capacity">Capacity Estimates</Link>).
+          <Link to="/technical-design/requirements/non-functional/capacity">Capacity Estimates</Link>).
         </p>
       </section>
 
@@ -289,7 +289,7 @@ RETURNING id, agency_submission_id, status;`}</CodeBlock>
       <section>
         <h2>Sizing a run</h2>
         <p>
-          From <Link to="/requirements/non-functional/capacity">Capacity Estimates</Link>: a peak-day IRS run checks
+          From <Link to="/technical-design/requirements/non-functional/capacity">Capacity Estimates</Link>: a peak-day IRS run checks
           ~7.5M returns, 75,000 bulk requests. Three limits decide how many shards it needs:
         </p>
         <table className="metrics">
@@ -382,7 +382,8 @@ function Agencies() {
           <tbody>
             <tr><td>received, processing</td><td>Processing</td></tr>
             <tr><td>approved (with payment date)</td><td>Approved</td></tr>
-            <tr><td>sent</td><td>Refund sent</td></tr>
+            <tr><td>sent (the refund as filed)</td><td>Refund sent</td></tr>
+            <tr><td>adjusted (a different refund, with the reason)</td><td>Refund adjusted</td></tr>
             <tr><td>accepted (no refund)</td><td>Accepted</td></tr>
             <tr><td>action required (agency needs more information)</td><td>Action needed</td></tr>
             <tr><td>not found</td><td>No change; checked again next run</td></tr>
@@ -467,7 +468,7 @@ function Failures() {
           </tr>
           <tr>
             <td>Transmission fails</td>
-            <td>The return stays <em>Received</em>; its lease expires and the processor tries again.</td>
+            <td>The return stays <em>Received</em> and is retried after a backoff with jitter. If the agency itself keeps failing, its circuit breaker pauses sending (see <Link to="/architecture/components/gateway">API Gateway</Link>).</td>
             <td>"We'll send your return shortly"</td>
           </tr>
         </tbody>

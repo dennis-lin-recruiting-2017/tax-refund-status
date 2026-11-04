@@ -52,7 +52,7 @@ func New(cfg Config, overrides *Overrides, tp trace.TracerProvider) *Mock {
 // Statuses an operator may set. action_required means the agency needs more information
 // from the taxpayer (for example, an identity verification letter).
 var settable = map[string]bool{
-	"received": true, "processing": true, "approved": true, "sent": true, "accepted": true, "action_required": true,
+	"received": true, "processing": true, "approved": true, "sent": true, "adjusted": true, "accepted": true, "action_required": true,
 }
 
 func (m *Mock) Handler() http.Handler {
@@ -153,7 +153,7 @@ func (m *Mock) batchGet(w http.ResponseWriter, r *http.Request) {
 	for _, id := range req.SubmissionIDs {
 		res := m.Status(id, now)
 		if ov, ok := overrides[id]; ok && res.Status != "not_found" {
-			res = agency.StatusResult{SubmissionID: id, Status: ov.Status, PaymentDate: ov.PaymentDate, UpdatedAt: ov.UpdatedAt, Manual: true}
+			res = ov.result()
 		}
 		results = append(results, res)
 	}
@@ -161,16 +161,33 @@ func (m *Mock) batchGet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"results": results})
 }
 
-type overrideRequest struct {
-	Status      string `json:"status"`
-	PaymentDate string `json:"paymentDate,omitempty"`
+func (ov Override) result() agency.StatusResult {
+	return agency.StatusResult{
+		SubmissionID: ov.SubmissionID, Status: ov.Status, PaymentDate: ov.PaymentDate, UpdatedAt: ov.UpdatedAt,
+		Manual: true, RefundAmount: ov.RefundAmount, AmountOwed: ov.AmountOwed, Message: ov.Message,
+	}
 }
+
+const (
+	maxAmount     = 10_000_000
+	maxMessageLen = 500
+)
 
 func (m *Mock) setOverride(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	var req overrideRequest
+	var req agency.StatusOverride
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&req); err != nil || !settable[req.Status] {
 		http.Error(w, `{"error":"invalid status"}`, http.StatusBadRequest)
+		return
+	}
+	for _, a := range []*int64{req.RefundAmount, req.AmountOwed} {
+		if a != nil && (*a < 0 || *a > maxAmount) {
+			http.Error(w, `{"error":"amount out of range"}`, http.StatusBadRequest)
+			return
+		}
+	}
+	if len(req.Message) > maxMessageLen {
+		http.Error(w, `{"error":"message too long"}`, http.StatusBadRequest)
 		return
 	}
 	if m.Status(id, time.Now()).Status == "not_found" {
@@ -178,7 +195,7 @@ func (m *Mock) setOverride(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch req.Status {
-	case "approved", "sent":
+	case "approved", "sent", "adjusted":
 		if req.PaymentDate == "" {
 			req.PaymentDate = time.Now().UTC().Format(time.DateOnly)
 		} else if _, err := time.Parse(time.DateOnly, req.PaymentDate); err != nil {
@@ -188,14 +205,17 @@ func (m *Mock) setOverride(w http.ResponseWriter, r *http.Request) {
 	default:
 		req.PaymentDate = ""
 	}
-	ov, err := m.overrides.Set(r.Context(), m.cfg.Agency, Override{SubmissionID: id, Status: req.Status, PaymentDate: req.PaymentDate})
+	ov, err := m.overrides.Set(r.Context(), m.cfg.Agency, Override{
+		SubmissionID: id, Status: req.Status, PaymentDate: req.PaymentDate,
+		RefundAmount: req.RefundAmount, AmountOwed: req.AmountOwed, Message: req.Message,
+	})
 	if err != nil {
 		slog.Error("set override", "err", err)
 		http.Error(w, `{"error":"could not save"}`, http.StatusInternalServerError)
 		return
 	}
 	trace.SpanFromContext(r.Context()).SetAttributes(attribute.String("agency.submission_id", id), attribute.String("agency.override_status", req.Status))
-	writeJSON(w, http.StatusOK, agency.StatusResult{SubmissionID: id, Status: ov.Status, PaymentDate: ov.PaymentDate, UpdatedAt: ov.UpdatedAt, Manual: true})
+	writeJSON(w, http.StatusOK, ov.result())
 }
 
 func (m *Mock) clearOverride(w http.ResponseWriter, r *http.Request) {

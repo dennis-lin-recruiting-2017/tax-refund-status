@@ -1,23 +1,610 @@
 [
   {
-    "email": "alex@example.test",
-    "password": "Demo-Refund-2025!",
-    "fullName": "Alex Rivera",
-    "taxIdLast4": "1001",
-    "role": "taxpayer"
+    "email": "tester00@test.com",
+    "password": "test",
+    "fullName": "Tester 00",
+    "taxIdLast4": "2000",
+    "role": "taxpayer",
+    "state": "CA",
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 60,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 58000,
+        "withholding": 5178,
+        "routingNumber": "110000000",
+        "accountNumber": "004000000000"
+      },
+      "540": {
+        "filingStatus": "single",
+        "interest": 60,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 58000,
+        "withholding": 1730,
+        "routingNumber": "110000000",
+        "accountNumber": "004000000000"
+      }
+    }
   },
   {
-    "email": "sam@example.test",
-    "password": "Demo-Refund-2025!",
-    "fullName": "Sam Chen",
-    "taxIdLast4": "1002",
-    "role": "taxpayer"
+    "email": "tester01@test.com",
+    "password": "test",
+    "fullName": "Tester 01",
+    "taxIdLast4": "2001",
+    "role": "taxpayer",
+    "state": "CA",
+    "drafts": {
+      "1040": {
+        "filingStatus": "married_joint",
+        "interest": 113,
+        "itemizedDeductions": 0,
+        "dependents": 1,
+        "wages": 106800,
+        "withholding": 6940,
+        "routingNumber": "110000000",
+        "accountNumber": "004000007919"
+      },
+      "540": {
+        "filingStatus": "married_joint",
+        "interest": 113,
+        "itemizedDeductions": 0,
+        "dependents": 1,
+        "wages": 106800,
+        "withholding": 2375,
+        "routingNumber": "110000000",
+        "accountNumber": "004000007919"
+      }
+    }
   },
   {
-    "email": "demo-admin@interview.com",
-    "password": "Admin-SxHvwoqi0i!",
+    "email": "tester02@test.com",
+    "password": "test",
+    "fullName": "Tester 02",
+    "taxIdLast4": "2002",
+    "role": "taxpayer",
+    "state": "CA",
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 166,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 60700,
+        "withholding": 5743,
+        "routingNumber": "110000000",
+        "accountNumber": "004000015838"
+      },
+      "540": {
+        "filingStatus": "single",
+        "interest": 166,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 60700,
+        "withholding": 1990,
+        "routingNumber": "110000000",
+        "accountNumber": "004000015838"
+      }
+    }
+  },
+  {
+    "email": "tester03@test.com",
+    "password": "test",
+    "fullName": "Tester 03",
+    "taxIdLast4": "2003",
+    "role": "taxpayer",
+    "state": "CA",
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 219,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 62000,
+        "withholding": 6027,
+        "routingNumber": "110000000",
+        "accountNumber": "004000023757"
+      },
+      "540": {
+        "filingStatus": "single",
+        "interest": 219,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 62000,
+        "withholding": 2152,
+        "routingNumber": "110000000",
+        "accountNumber": "004000023757"
+      }
+    }
+  },
+  {
+    "email": "tester04@test.com",
+    "password": "test",
+    "fullName": "Tester 04",
+    "taxIdLast4": "2004",
+    "role": "taxpayer",
+    "state": "CA",
+    "drafts": {
+      "1040": {
+        "filingStatus": "married_joint",
+        "interest": 272,
+        "itemizedDeductions": 0,
+        "dependents": 2,
+        "wages": 116000,
+        "withholding": 5984,
+        "routingNumber": "110000000",
+        "accountNumber": "004000031676"
+      },
+      "540": {
+        "filingStatus": "married_joint",
+        "interest": 272,
+        "itemizedDeductions": 0,
+        "dependents": 2,
+        "wages": 116000,
+        "withholding": 2562,
+        "routingNumber": "110000000",
+        "accountNumber": "004000031676"
+      }
+    }
+  },
+  {
+    "email": "tester05@test.com",
+    "password": "test",
+    "fullName": "Tester 05",
+    "taxIdLast4": "2005",
+    "role": "taxpayer",
+    "state": "CA",
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 325,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 64000,
+        "withholding": 5209,
+        "routingNumber": "110000000",
+        "accountNumber": "004000039595"
+      },
+      "540": {
+        "filingStatus": "single",
+        "interest": 325,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 64000,
+        "withholding": 1873,
+        "routingNumber": "110000000",
+        "accountNumber": "004000039595"
+      }
+    }
+  },
+  {
+    "email": "tester06@test.com",
+    "password": "test",
+    "fullName": "Tester 06",
+    "taxIdLast4": "2006",
+    "role": "taxpayer",
+    "state": "CA",
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 378,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 65400,
+        "withholding": 6384,
+        "routingNumber": "110000000",
+        "accountNumber": "004000047514"
+      },
+      "540": {
+        "filingStatus": "single",
+        "interest": 378,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 65400,
+        "withholding": 2350,
+        "routingNumber": "110000000",
+        "accountNumber": "004000047514"
+      }
+    }
+  },
+  {
+    "email": "tester07@test.com",
+    "password": "test",
+    "fullName": "Tester 07",
+    "taxIdLast4": "2007",
+    "role": "taxpayer",
+    "state": "CA",
+    "drafts": {
+      "1040": {
+        "filingStatus": "head_of_household",
+        "interest": 91,
+        "itemizedDeductions": 0,
+        "dependents": 1,
+        "wages": 76000,
+        "withholding": 4150,
+        "routingNumber": "110000000",
+        "accountNumber": "004000055433"
+      },
+      "540": {
+        "filingStatus": "head_of_household",
+        "interest": 91,
+        "itemizedDeductions": 0,
+        "dependents": 1,
+        "wages": 76000,
+        "withholding": 905,
+        "routingNumber": "110000000",
+        "accountNumber": "004000055433"
+      }
+    }
+  },
+  {
+    "email": "tester08@test.com",
+    "password": "test",
+    "fullName": "Tester 08",
+    "taxIdLast4": "2008",
+    "role": "taxpayer",
+    "state": "CA",
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 144,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 67400,
+        "withholding": 6940,
+        "routingNumber": "110000000",
+        "accountNumber": "004000063352"
+      },
+      "540": {
+        "filingStatus": "single",
+        "interest": 144,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 67400,
+        "withholding": 2522,
+        "routingNumber": "110000000",
+        "accountNumber": "004000063352"
+      }
+    }
+  },
+  {
+    "email": "tester09@test.com",
+    "password": "test",
+    "fullName": "Tester 09",
+    "taxIdLast4": "2009",
+    "role": "taxpayer",
+    "state": "CA",
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 197,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 68800,
+        "withholding": 7415,
+        "routingNumber": "110000000",
+        "accountNumber": "004000071271"
+      },
+      "540": {
+        "filingStatus": "single",
+        "interest": 197,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 68800,
+        "withholding": 2711,
+        "routingNumber": "110000000",
+        "accountNumber": "004000071271"
+      }
+    }
+  },
+  {
+    "email": "tester10@test.com",
+    "password": "test",
+    "fullName": "Tester 10",
+    "taxIdLast4": "2010",
+    "role": "taxpayer",
+    "state": "NY",
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 250,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 70100,
+        "withholding": 7876,
+        "routingNumber": "110000000",
+        "accountNumber": "004000079190"
+      },
+      "IT-201": {
+        "filingStatus": "single",
+        "interest": 250,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 70100,
+        "withholding": 3771,
+        "routingNumber": "110000000",
+        "accountNumber": "004000079190"
+      }
+    }
+  },
+  {
+    "email": "tester11@test.com",
+    "password": "test",
+    "fullName": "Tester 11",
+    "taxIdLast4": "2011",
+    "role": "taxpayer",
+    "state": "NY",
+    "drafts": {
+      "1040": {
+        "filingStatus": "married_joint",
+        "interest": 303,
+        "itemizedDeductions": 0,
+        "dependents": 1,
+        "wages": 127400,
+        "withholding": 10228,
+        "routingNumber": "110000000",
+        "accountNumber": "004000087109"
+      },
+      "IT-201": {
+        "filingStatus": "married_joint",
+        "interest": 303,
+        "itemizedDeductions": 0,
+        "dependents": 1,
+        "wages": 127400,
+        "withholding": 6720,
+        "routingNumber": "110000000",
+        "accountNumber": "004000087109"
+      }
+    }
+  },
+  {
+    "email": "tester12@test.com",
+    "password": "test",
+    "fullName": "Tester 12",
+    "taxIdLast4": "2012",
+    "role": "taxpayer",
+    "state": "NY",
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 356,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 72100,
+        "withholding": 7906,
+        "routingNumber": "110000000",
+        "accountNumber": "004000095028"
+      },
+      "IT-201": {
+        "filingStatus": "single",
+        "interest": 356,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 72100,
+        "withholding": 3650,
+        "routingNumber": "110000000",
+        "accountNumber": "004000095028"
+      }
+    }
+  },
+  {
+    "email": "tester13@test.com",
+    "password": "test",
+    "fullName": "Tester 13",
+    "taxIdLast4": "2013",
+    "role": "taxpayer",
+    "state": "NY",
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 69,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 73400,
+        "withholding": 8284,
+        "routingNumber": "110000000",
+        "accountNumber": "004000102947"
+      },
+      "IT-201": {
+        "filingStatus": "single",
+        "interest": 69,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 73400,
+        "withholding": 3787,
+        "routingNumber": "110000000",
+        "accountNumber": "004000102947"
+      }
+    }
+  },
+  {
+    "email": "tester14@test.com",
+    "password": "test",
+    "fullName": "Tester 14",
+    "taxIdLast4": "2014",
+    "role": "taxpayer",
+    "state": "NY",
+    "drafts": {
+      "1040": {
+        "filingStatus": "married_joint",
+        "interest": 122,
+        "itemizedDeductions": 0,
+        "dependents": 2,
+        "wages": 137100,
+        "withholding": 9606,
+        "routingNumber": "110000000",
+        "accountNumber": "004000110866"
+      },
+      "IT-201": {
+        "filingStatus": "married_joint",
+        "interest": 122,
+        "itemizedDeductions": 0,
+        "dependents": 2,
+        "wages": 137100,
+        "withholding": 6956,
+        "routingNumber": "110000000",
+        "accountNumber": "004000110866"
+      }
+    }
+  },
+  {
+    "email": "tester15@test.com",
+    "password": "test",
+    "fullName": "Tester 15",
+    "taxIdLast4": "2015",
+    "role": "taxpayer",
+    "state": "NY",
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 175,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 75400,
+        "withholding": 7511,
+        "routingNumber": "110000000",
+        "accountNumber": "004000118785"
+      },
+      "IT-201": {
+        "filingStatus": "single",
+        "interest": 175,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 75400,
+        "withholding": 3303,
+        "routingNumber": "110000000",
+        "accountNumber": "004000118785"
+      }
+    }
+  },
+  {
+    "email": "tester16@test.com",
+    "password": "test",
+    "fullName": "Tester 16",
+    "taxIdLast4": "2016",
+    "role": "taxpayer",
+    "state": "NY",
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 228,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 76800,
+        "withholding": 9486,
+        "routingNumber": "110000000",
+        "accountNumber": "004000126704"
+      },
+      "IT-201": {
+        "filingStatus": "single",
+        "interest": 228,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 76800,
+        "withholding": 4140,
+        "routingNumber": "110000000",
+        "accountNumber": "004000126704"
+      }
+    }
+  },
+  {
+    "email": "tester17@test.com",
+    "password": "test",
+    "fullName": "Tester 17",
+    "taxIdLast4": "2017",
+    "role": "taxpayer",
+    "state": "NY",
+    "drafts": {
+      "1040": {
+        "filingStatus": "head_of_household",
+        "interest": 281,
+        "itemizedDeductions": 0,
+        "dependents": 1,
+        "wages": 89900,
+        "withholding": 6456,
+        "routingNumber": "110000000",
+        "accountNumber": "004000134623"
+      },
+      "IT-201": {
+        "filingStatus": "head_of_household",
+        "interest": 281,
+        "itemizedDeductions": 0,
+        "dependents": 1,
+        "wages": 89900,
+        "withholding": 4691,
+        "routingNumber": "110000000",
+        "accountNumber": "004000134623"
+      }
+    }
+  },
+  {
+    "email": "tester18@test.com",
+    "password": "test",
+    "fullName": "Tester 18",
+    "taxIdLast4": "2018",
+    "role": "taxpayer",
+    "state": "NY",
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 334,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 78800,
+        "withholding": 9528,
+        "routingNumber": "110000000",
+        "accountNumber": "004000142542"
+      },
+      "IT-201": {
+        "filingStatus": "single",
+        "interest": 334,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 78800,
+        "withholding": 4097,
+        "routingNumber": "110000000",
+        "accountNumber": "004000142542"
+      }
+    }
+  },
+  {
+    "email": "tester19@test.com",
+    "password": "test",
+    "fullName": "Tester 19",
+    "taxIdLast4": "2019",
+    "role": "taxpayer",
+    "state": "NY",
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 387,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 80200,
+        "withholding": 10033,
+        "routingNumber": "110000000",
+        "accountNumber": "004000150461"
+      },
+      "IT-201": {
+        "filingStatus": "single",
+        "interest": 387,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 80200,
+        "withholding": 4266,
+        "routingNumber": "110000000",
+        "accountNumber": "004000150461"
+      }
+    }
+  },
+  {
+    "email": "admin@test.com",
+    "password": "test",
     "fullName": "Demo Admin",
     "taxIdLast4": "0000",
-    "role": "admin"
+    "role": "admin",
+    "state": "CA"
   }
 ]

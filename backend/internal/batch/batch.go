@@ -57,6 +57,18 @@ type Summary struct {
 type due struct {
 	id, submissionID, status string
 	checkCount               int
+	// What we last stored from the agency, to tell whether its details changed.
+	refundCents, owedCents *int64
+	message                *string
+}
+
+// dueColumns must match scanDue.
+const dueColumns = `t.id, t.agency_submission_id, t.status, t.check_count,
+	t.agency_refund_cents, t.agency_owed_cents, t.agency_message`
+
+func scanDue(row pgx.CollectableRow) (due, error) {
+	var d due
+	return d, row.Scan(&d.id, &d.submissionID, &d.status, &d.checkCount, &d.refundCents, &d.owedCents, &d.message)
 }
 
 // Run performs one batch run for a jurisdiction's shard, until nothing more is due.
@@ -172,15 +184,49 @@ func (r *Runner) claim(ctx context.Context, jurisdiction string, cutoff time.Tim
 			ORDER BY next_check_at
 			LIMIT $6
 			FOR UPDATE SKIP LOCKED)
-		RETURNING t.id, t.agency_submission_id, t.status, t.check_count`,
+		RETURNING `+dueColumns,
 		jurisdiction, cutoff, shards, shard, r.cfg.BatchLease.Seconds(), r.cfg.BatchChunkSize)
 	if err != nil {
 		return nil, err
 	}
-	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (due, error) {
+	return pgx.CollectRows(rows, scanDue)
+}
+
+// ErrBusy means another worker is checking the return right now.
+var ErrBusy = errors.New("return is being checked by another worker")
+
+// CheckOne syncs a single return with its agency immediately, through the same path as batch
+// runs. The admin console uses it so a status change reaches the taxpayer without waiting for
+// the next run; a real product would use it for "check again now" from a support agent.
+func (r *Runner) CheckOne(ctx context.Context, returnID string) error {
+	ctx, span := r.tracer.Start(ctx, "batch.check_one", trace.WithAttributes(attribute.String("return.id", returnID)))
+	defer span.End()
+
+	var jurisdiction string
+	rows, err := r.pool.Query(ctx, `UPDATE tax_returns t
+		SET lease_until = now() + make_interval(secs => $2)
+		WHERE t.id = $1 AND t.agency_submission_id IS NOT NULL AND (t.lease_until IS NULL OR t.lease_until < now())
+		RETURNING t.jurisdiction, `+dueColumns, returnID, r.cfg.BatchLease.Seconds())
+	if err != nil {
+		return err
+	}
+	list, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (due, error) {
 		var d due
-		return d, row.Scan(&d.id, &d.submissionID, &d.status, &d.checkCount)
+		return d, row.Scan(&jurisdiction, &d.id, &d.submissionID, &d.status, &d.checkCount, &d.refundCents, &d.owedCents, &d.message)
 	})
+	if err != nil {
+		return err
+	}
+	if len(list) == 0 {
+		return ErrBusy
+	}
+	j, _ := agency.Lookup(jurisdiction)
+	client := r.clients[jurisdiction]
+	if client == nil {
+		return fmt.Errorf("no agency client for jurisdiction %q", jurisdiction)
+	}
+	_, err = r.checkChunk(ctx, client, j, list)
+	return err
 }
 
 // checkChunk asks the agency about one chunk and stores the answers in one transaction.
@@ -222,11 +268,16 @@ func (r *Runner) checkChunk(ctx context.Context, client *agency.Client, j agency
 		if res.PaymentDate != "" {
 			paymentDate = &res.PaymentDate
 		}
+		refund, owed, msg := cents(res.RefundAmount), cents(res.AmountOwed), nonEmpty(res.Message)
 		b.Queue(`UPDATE tax_returns
 			SET last_checked_at = now(), check_count = check_count + 1, next_check_at = $2, lease_until = NULL,
-			    agency_updated_at = $3, expected_payment_date = COALESCE($4::date, expected_payment_date)
-			WHERE id = $1`, d.id, nextCheck, nullTime(res.UpdatedAt), paymentDate)
-		if next != d.status {
+			    agency_updated_at = $3, expected_payment_date = COALESCE($4::date, expected_payment_date),
+			    agency_refund_cents = $5, agency_owed_cents = $6, agency_message = $7
+			WHERE id = $1`, d.id, nextCheck, nullTime(res.UpdatedAt), paymentDate, refund, owed, msg)
+		detailsChanged := !sameInt(d.refundCents, refund) || !sameInt(d.owedCents, owed) || !sameStr(d.message, msg)
+		note := Note(next, j.Name, res.RefundAmount, res.AmountOwed, res.Message)
+		switch {
+		case next != d.status:
 			changed++
 			var reason *string
 			if next == "action_needed" {
@@ -234,7 +285,11 @@ func (r *Runner) checkChunk(ctx context.Context, client *agency.Client, j agency
 				reason = &r
 			}
 			b.Queue(`UPDATE tax_returns SET status = $2, status_reason = $3, status_changed_at = now() WHERE id = $1`, d.id, next, reason)
-			b.Queue(`INSERT INTO return_events (return_id, status, note) VALUES ($1, $2, $3)`, d.id, next, Note(next, j.Name))
+			b.Queue(`INSERT INTO return_events (return_id, status, note) VALUES ($1, $2, $3)`, d.id, next, note)
+		case detailsChanged && (refund != nil || owed != nil || msg != nil):
+			// Same status, new amount or message: the taxpayer still needs to hear about it.
+			changed++
+			b.Queue(`INSERT INTO return_events (return_id, status, note) VALUES ($1, $2, $3)`, d.id, next, "Update: "+note)
 		}
 	}
 	// Anything the agency left out of its response is retried on the next run.
@@ -257,7 +312,7 @@ func MapStatus(agencyStatus string) string {
 	switch agencyStatus {
 	case "received", "processing":
 		return "processing"
-	case "approved", "sent", "accepted":
+	case "approved", "sent", "adjusted", "accepted":
 		return agencyStatus
 	case "action_required":
 		return "action_needed"
@@ -271,7 +326,7 @@ func MapStatus(agencyStatus string) string {
 func NextCheck(status, paymentDate string, now time.Time, recheck time.Duration) *time.Time {
 	var next time.Time
 	switch status {
-	case "sent", "accepted":
+	case "sent", "adjusted", "accepted":
 		return nil
 	case "approved":
 		next = now.Add(recheck)
@@ -286,22 +341,78 @@ func NextCheck(status, paymentDate string, now time.Time, recheck time.Duration)
 	return &next
 }
 
-// Note is the status history entry shown to the taxpayer.
-func Note(status, agencyName string) string {
+// Note is the status history entry shown to the taxpayer, including any amount the agency
+// reported and its message.
+func Note(status, agencyName string, refund, owed *int64, message string) string {
+	var s string
 	switch status {
 	case "processing":
-		return fmt.Sprintf("The %s is processing your return.", agencyName)
+		s = fmt.Sprintf("The %s is processing your return.", agencyName)
 	case "approved":
-		return fmt.Sprintf("The %s approved your refund.", agencyName)
+		s = fmt.Sprintf("The %s approved your refund.", agencyName)
+		if refund != nil {
+			s = fmt.Sprintf("The %s approved your refund of %s.", agencyName, USD(*refund))
+		}
 	case "sent":
-		return fmt.Sprintf("The %s sent your refund by direct deposit.", agencyName)
+		s = fmt.Sprintf("The %s sent your refund by direct deposit.", agencyName)
+		if refund != nil {
+			s = fmt.Sprintf("The %s sent your refund of %s by direct deposit.", agencyName, USD(*refund))
+		}
+	case "adjusted":
+		s = fmt.Sprintf("The %s adjusted your refund and sent it by direct deposit.", agencyName)
+		if refund != nil {
+			s = fmt.Sprintf("The %s adjusted your refund to %s and sent it by direct deposit.", agencyName, USD(*refund))
+		}
 	case "accepted":
-		return fmt.Sprintf("The %s accepted your return.", agencyName)
+		s = fmt.Sprintf("The %s accepted your return.", agencyName)
+		if owed != nil && *owed > 0 {
+			s += " Balance due: " + USD(*owed) + "."
+		}
 	case "action_needed":
+		if message != "" {
+			return fmt.Sprintf("The %s needs more information: %s", agencyName, message)
+		}
 		return fmt.Sprintf("The %s needs more information to process your return. Watch your mail for a letter with instructions.", agencyName)
+	default:
+		s = "Your return's status changed."
 	}
-	return "Your return's status changed."
+	if message != "" {
+		s += " " + message
+	}
+	return s
 }
+
+// USD formats whole dollars as "$1,234".
+func USD(dollars int64) string {
+	sign := ""
+	if dollars < 0 {
+		sign, dollars = "-", -dollars
+	}
+	digits := fmt.Sprint(dollars)
+	for i := len(digits) - 3; i > 0; i -= 3 {
+		digits = digits[:i] + "," + digits[i:]
+	}
+	return sign + "$" + digits
+}
+
+func cents(dollars *int64) *int64 {
+	if dollars == nil {
+		return nil
+	}
+	c := *dollars * 100
+	return &c
+}
+
+func nonEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func sameInt(a, b *int64) bool { return (a == nil && b == nil) || (a != nil && b != nil && *a == *b) }
+
+func sameStr(a, b *string) bool { return (a == nil && b == nil) || (a != nil && b != nil && *a == *b) }
 
 func nullTime(t time.Time) *time.Time {
 	if t.IsZero() {

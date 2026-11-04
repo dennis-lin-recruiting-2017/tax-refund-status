@@ -44,9 +44,9 @@ cd tax-refund-status`}</CodeBlock>
       <Step n="3" title="Open the portal">
         <CodeBlock>make k8s-forward</CodeBlock>
         <p>
-          Leave that running, open <a href="http://localhost:8090">http://localhost:8090</a>, and sign in with a demo
-          account from <code>backend/internal/store/demo-users.json</code>. Sign in as{' '}
-          <code>demo-admin@interview.com</code> for the <Link to="/demo/admin-console">admin console</Link>.
+          Leave that running, open <a href="http://localhost:8090">http://localhost:8090</a>, and sign in as{' '}
+          <code>tester00@test.com</code> with the password <code>test</code>. Sign in as <code>admin@test.com</code>{' '}
+          (same password) for the <Link to="/demo/admin-console">admin console</Link>.
         </p>
       </Step>
       <Step n="4" title="Watch the traces">
@@ -166,15 +166,16 @@ function Workflow() {
     <Page title="Try the Workflow" lede="Walk through what a taxpayer does, and see the fraud screening work.">
       <ol className="points">
         <li>
-          <strong>Sign in</strong> with one of the demo accounts listed in{' '}
-          <code>backend/internal/store/demo-users.json</code>.
+          <strong>Sign in</strong> with the password <code>test</code> as <code>tester00@test.com</code> through{' '}
+          <code>tester09@test.com</code> (federal and California) or <code>tester10@test.com</code> through{' '}
+          <code>tester19@test.com</code> (federal and New York). Each tester's forms are pre-filled and ready to submit.
         </li>
         <li>
-          <strong>File Form 1040.</strong> Click <strong>Use sample W-2</strong>, then <strong>Review</strong> to see
-          the server's calculation, then <strong>Submit return</strong>.
+          <strong>File Form 1040.</strong> It opens pre-filled with the tester's W-2 and bank account. Click{' '}
+          <strong>Review</strong> to see the server's calculation, then <strong>Submit return</strong>.
         </li>
         <li>
-          <strong>File CA Form 540</strong> the same way.
+          <strong>File the state return</strong> (CA Form 540 or NY Form IT-201) the same way.
         </li>
         <li>
           <strong>Watch the status.</strong> Within seconds the return is sent to the agency (<em>Processing</em>). After
@@ -182,17 +183,18 @@ function Workflow() {
           <em>Refund sent</em>. The card shows when the agency was last checked, and the dashboard updates by itself.
         </li>
         <li>
-          <strong>Trigger fraud screening.</strong> Sign out, sign in as the second demo user, and file a CA 540 with the
-          sample W-2. Same figures and same bank account as the first user means the pgvector similarity check holds
-          it as <strong>Action needed</strong> before it's ever sent to the agency.
+          <strong>Trigger fraud screening.</strong> Sign in as another tester in the same state and, before submitting,
+          type in the first tester's W-2 figures and bank account. A near-identical return with the same bank account
+          means the pgvector similarity check holds it as <strong>Action needed</strong> before it's ever sent to the
+          agency.
         </li>
         <li>
           <strong>Start over</strong> with <strong>Reset demo returns</strong> at the bottom of the dashboard.
         </li>
         <li>
           <strong>Change a status yourself.</strong> In a private window, sign in as{' '}
-          <code>demo-admin@interview.com</code> and use the <Link to="/demo/admin-console">admin console</Link> to set
-          any return to Approved, Refund sent, or Action required at its agency.
+          <code>admin@test.com</code> and use the <Link to="/demo/admin-console">admin console</Link> to set
+          any return to Approved, Refund sent, Refund adjusted, or Action required at its agency.
         </li>
         <li>
           <strong>Follow it in Jaeger.</strong> With <code>make k8s-jaeger</code> running, open{' '}
@@ -252,7 +254,7 @@ function Operate() {
               <td>Every minute, check due returns with the agency in bulk and store the answers</td>
             </tr>
             <tr>
-              <td>agency-irs, agency-ca-ftb</td>
+              <td>agency-irs, agency-ca-ftb, agency-ny-dtf</td>
               <td>1 each</td>
               <td>Mock agency e-file and status APIs. They fail 5% of status calls on purpose.</td>
             </tr>

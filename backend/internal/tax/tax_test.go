@@ -43,3 +43,20 @@ func TestCaliforniaSingleOwed(t *testing.T) {
 		t.Fatalf("got tax=%d owed=%d refund=%d", r.Tax, r.Owed, r.Refund)
 	}
 }
+
+func TestNewYorkSingle(t *testing.T) {
+	// 72,000 - 8,000 = 64,000 taxable.
+	// 8,500*.04=340 + 3,200*.045=144 + 2,200*.0525=115.50 + (64,000-13,900)*.055=2,755.50 → 3,355
+	r := NewYorkIT201(Input{FilingStatus: Single, Wages: 72000, Withholding: 3500})
+	if r.Tax != 3355 || r.Refund != 145 {
+		t.Fatalf("got tax=%d refund=%d owed=%d", r.Tax, r.Refund, r.Owed)
+	}
+}
+
+func TestNewYorkDependentExemption(t *testing.T) {
+	a := NewYorkIT201(Input{FilingStatus: HOH, Wages: 60000})
+	b := NewYorkIT201(Input{FilingStatus: HOH, Wages: 60000, Dependents: 2})
+	if a.Tax-b.Tax != 110 { // 2,000 less taxable income at the 5.5% bracket
+		t.Fatalf("dependent exemption saved %d, want 110", a.Tax-b.Tax)
+	}
+}

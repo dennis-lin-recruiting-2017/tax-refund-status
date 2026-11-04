@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import CodeBlock from '../components/CodeBlock.jsx'
+import TracingDiagram from './TracingDiagram.jsx'
 
 const SAMPLE_TRACE = `refund-batch   batch.run ca-ftb                            1129 ms  checked=1 changed=1 status=succeeded
 refund-batch   ├─ INSERT batch_runs                            1 ms
@@ -24,6 +25,16 @@ export default function Tracing() {
       </p>
 
       <section>
+        <h2>How a trace is made</h2>
+        <p>
+          Follow one trace from the first span to finding it in Jaeger. Each step highlights the spans it creates in the
+          waterfall under the diagram. Turn on <strong>Production pipeline</strong> to see the Collector added in front of
+          Jaeger.
+        </p>
+        <TracingDiagram />
+      </section>
+
+      <section>
         <h2>What's traced</h2>
         <table className="metrics">
           <thead>
@@ -33,7 +44,7 @@ export default function Tracing() {
             <tr><td><code>refund-api</code></td><td>Every API request (method and path), and its Postgres queries</td></tr>
             <tr><td><code>refund-processor</code></td><td>One trace per return transmitted: duplicate screening, the agency submit, the status update</td></tr>
             <tr><td><code>refund-batch</code></td><td>One trace per batch run: claims, each chunk, each agency call and retry, and the writes</td></tr>
-            <tr><td><code>agency-irs</code>, <code>agency-ca-ftb</code></td><td>The agency's side of each call, joined to the caller's trace</td></tr>
+            <tr><td><code>agency-irs</code>, <code>agency-ca-ftb</code>, <code>agency-ny-dtf</code></td><td>The agency's side of each call, joined to the caller's trace</td></tr>
           </tbody>
         </table>
         <p>
@@ -137,7 +148,7 @@ FROM batch_runs ORDER BY id DESC LIMIT 10;`}</CodeBlock>
           <li>
             <strong>Tail sampling.</strong> Keep every trace with an error or high latency and every batch run, plus a few
             percent of ordinary requests. Keeping everything at peak would mean hundreds of millions of traces (see{' '}
-            <Link to="/requirements/non-functional/capacity">Capacity Estimates</Link>).
+            <Link to="/technical-design/requirements/non-functional/capacity">Capacity Estimates</Link>).
           </li>
           <li>
             <strong>Durable storage.</strong> Jaeger backed by OpenSearch or Cassandra with a retention period, instead of

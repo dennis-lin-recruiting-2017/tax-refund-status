@@ -1,8 +1,12 @@
-// Package embedding turns a tax return into a fixed-length vector for similarity search.
+// Package embedding turns a tax return's figures into a fixed-length vector for similarity search.
 //
-// Fraud rings reuse the same figures and the same bank account across stolen identities.
-// Encoding those signals as a vector lets pgvector find near-duplicate returns filed under
-// different taxpayers with a single nearest-neighbour query.
+// Fraud rings file templated returns, with near-identical figures, under stolen identities and
+// route the refunds into one bank account. The processor finds them by looking for other
+// taxpayers' returns paying into the same account (an exact match on the keyed bank fingerprint)
+// and asking pgvector whether any of those have near-identical figures. The bank account is
+// deliberately not part of the vector: hashed account bytes are effectively random, so two
+// different accounts can land close together and make honest filers with similar incomes look
+// like duplicates.
 package embedding
 
 import (
@@ -15,7 +19,7 @@ import (
 
 const Dims = 16
 
-func Features(jurisdiction string, in tax.Input, r tax.Result, bankFingerprint []byte) []float32 {
+func Features(in tax.Input, r tax.Result) []float32 {
 	v := make([]float64, Dims)
 	logScale := func(n int64) float64 { return math.Log1p(float64(max(n, 0))) / 14 }
 
@@ -33,12 +37,13 @@ func Features(jurisdiction string, in tax.Input, r tax.Result, bankFingerprint [
 		}
 	}
 	v[11] = logScale(r.Refund) - logScale(r.Owed)
-	if jurisdiction == "CA" {
-		v[12] = 1
+	v[12] = logScale(r.Tax)
+	if in.Wages > 0 {
+		v[13] = math.Min(float64(r.Tax)/float64(in.Wages), 1) // effective tax rate
 	}
-	// Three dimensions derived from the bank fingerprint: same account, same direction.
-	for i := 0; i < 3 && i < len(bankFingerprint); i++ {
-		v[13+i] = (float64(bankFingerprint[i])/255)*2 - 1
+	v[14] = math.Max(-1, math.Min(1, float64(r.Refund-r.Owed)/float64(max(r.Tax, 1))))
+	if in.ItemizedDeductions > 0 {
+		v[15] = 1
 	}
 
 	var norm float64

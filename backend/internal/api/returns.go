@@ -15,6 +15,7 @@ import (
 	"taxrefund/internal/agency"
 	"taxrefund/internal/auth"
 	"taxrefund/internal/embedding"
+	"taxrefund/internal/store"
 	"taxrefund/internal/tax"
 )
 
@@ -24,8 +25,9 @@ type formSpec struct {
 }
 
 var forms = map[string]formSpec{
-	"1040": {"federal", tax.Federal1040},
-	"540":  {"CA", tax.California540},
+	"1040":   {"federal", tax.Federal1040},
+	"540":    {"CA", tax.California540},
+	"IT-201": {"NY", tax.NewYorkIT201},
 }
 
 type returnRequest struct {
@@ -104,6 +106,10 @@ func (s *Server) parseForm(w http.ResponseWriter, r *http.Request, requireBank b
 		writeError(w, http.StatusNotFound, "Unknown form.")
 		return spec, form, returnRequest{}, false
 	}
+	if user := auth.UserFrom(r.Context()); spec.jurisdiction != "federal" && spec.jurisdiction != user.State {
+		writeError(w, http.StatusUnprocessableEntity, fmt.Sprintf("You're set up to file a %s state return, not this form.", user.State))
+		return spec, form, returnRequest{}, false
+	}
 	var req returnRequest
 	if !decode(w, r, &req) {
 		return spec, form, req, false
@@ -135,7 +141,7 @@ func (s *Server) handleSubmit(w http.ResponseWriter, r *http.Request) {
 	mac := hmac.New(sha256.New, s.cfg.BankHMACKey)
 	mac.Write([]byte(req.RoutingNumber + ":" + req.AccountNumber))
 	fingerprint := mac.Sum(nil)
-	features := embedding.Features(spec.jurisdiction, in, result, fingerprint)
+	features := embedding.Features(in, result)
 
 	// Bank numbers are not stored: only the last four digits and the keyed fingerprint.
 	storedInput := map[string]any{
@@ -177,6 +183,18 @@ func (s *Server) handleSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, ret)
+}
+
+// handleDraft serves a demo user's pre-filled form, so testers can review and submit quickly.
+func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
+	user := auth.UserFrom(r.Context())
+	draft, ok := store.DemoDraft(user.Email, r.PathValue("form"))
+	if !ok {
+		writeError(w, http.StatusNotFound, "No pre-filled form for this account.")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(draft)
 }
 
 func (s *Server) handleListReturns(w http.ResponseWriter, r *http.Request) {
@@ -221,6 +239,9 @@ type returnView struct {
 	SubmittedAt         time.Time  `json:"submittedAt"`
 	StatusChangedAt     time.Time  `json:"statusChangedAt"`
 	Agency              string     `json:"agency"`
+	AgencyRefund        *int64     `json:"agencyRefund"`  // refund the agency approved or sent, if it differs from "as filed"
+	AgencyOwed          *int64     `json:"agencyOwed"`    // balance due the agency reported
+	AgencyMessage       *string    `json:"agencyMessage"` // the agency's message to the taxpayer
 	TransmittedAt       *time.Time `json:"transmittedAt"`
 	LastCheckedAt       *time.Time `json:"lastCheckedAt"`
 	NextCheckAt         *time.Time `json:"nextCheckAt"`
@@ -244,6 +265,7 @@ func (s *Server) queryReturns(ctx context.Context, where string, args ...any) ([
 			r.refund_cents / 100, r.owed_cents / 100, r.bank_last4, r.status, r.status_reason,
 			to_char(r.expected_payment_date, 'YYYY-MM-DD'), r.submitted_at, r.status_changed_at,
 			r.transmitted_at, r.last_checked_at, r.next_check_at, r.computed,
+			r.agency_refund_cents / 100, r.agency_owed_cents / 100, r.agency_message,
 			COALESCE((SELECT json_agg(json_build_object('status', e.status, 'note', e.note, 'createdAt', e.created_at)
 			          ORDER BY e.created_at, e.id)
 			          FROM return_events e WHERE e.return_id = r.id), '[]')
@@ -255,7 +277,8 @@ func (s *Server) queryReturns(ctx context.Context, where string, args ...any) ([
 		var v returnView
 		err := row.Scan(&v.ID, &v.Form, &v.Jurisdiction, &v.TaxYear, &v.FilingStatus, &v.Refund, &v.Owed,
 			&v.BankLast4, &v.Status, &v.StatusReason, &v.ExpectedPaymentDate, &v.SubmittedAt,
-			&v.StatusChangedAt, &v.TransmittedAt, &v.LastCheckedAt, &v.NextCheckAt, &v.Computed, &v.Events)
+			&v.StatusChangedAt, &v.TransmittedAt, &v.LastCheckedAt, &v.NextCheckAt, &v.Computed,
+			&v.AgencyRefund, &v.AgencyOwed, &v.AgencyMessage, &v.Events)
 		if j, ok := agency.Lookup(v.Jurisdiction); ok {
 			v.Agency = j.Name
 		}

@@ -28,6 +28,7 @@ type User struct {
 	FullName   string `json:"fullName"`
 	TaxIDLast4 string `json:"taxIdLast4"`
 	Role       string `json:"role"`
+	State      string `json:"state"` // the state whose return this taxpayer files
 }
 
 func (u User) IsAdmin() bool { return u.Role == "admin" }
@@ -118,8 +119,8 @@ func (s *Service) Require(next http.Handler) http.Handler {
 			SET expires_at = now() + make_interval(secs => $2)
 			FROM users u
 			WHERE s.token_hash = $1 AND s.expires_at > now() AND u.id = s.user_id
-			RETURNING u.id, u.email, u.full_name, u.tax_id_last4, u.role`, hashToken(c.Value), s.ttl.Seconds()).
-			Scan(&u.ID, &u.Email, &u.FullName, &u.TaxIDLast4, &u.Role)
+			RETURNING u.id, u.email, u.full_name, u.tax_id_last4, u.role, u.state`, hashToken(c.Value), s.ttl.Seconds()).
+			Scan(&u.ID, &u.Email, &u.FullName, &u.TaxIDLast4, &u.Role, &u.State)
 		if err != nil {
 			s.setCookie(w, "", -1)
 			writeErr(w, http.StatusUnauthorized, "Your session has ended. Sign in again.")

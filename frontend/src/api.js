@@ -56,10 +56,21 @@ export const FORMS = {
     withholdingLabel: 'CA income tax withheld (W-2 box 17)',
     sample: { wages: 72000, withholding: 2900, interest: 120 },
   },
+  'IT-201': {
+    id: 'IT-201',
+    title: 'NY Form IT-201',
+    subtitle: 'New York Resident Income Tax Return',
+    agency: 'New York',
+    wagesLabel: 'NY wages (W-2 box 16)',
+    withholdingLabel: 'NY income tax withheld (W-2 box 17)',
+    sample: { wages: 72000, withholding: 3900, interest: 120 },
+  },
 }
 
-// Object keys like '540' and '1040' iterate numerically, so keep display order explicit.
-export const FORM_ORDER = ['1040', '540']
+const STATE_FORMS = { CA: '540', NY: 'IT-201' }
+
+// The forms a taxpayer files: the federal 1040 plus their state's return.
+export const formsFor = (user) => ['1040', STATE_FORMS[user?.state] ?? '540']
 
 // Published test routing number (valid checksum) and a fake account, for the demo only.
 export const SAMPLE_BANK = { routingNumber: '110000000', accountNumber: '000123456789' }

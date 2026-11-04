@@ -73,8 +73,8 @@ make install`}</CodeBlock>
       </Step>
       <Step n="3" title="Open the portal">
         <p>
-          Open <a href="http://localhost:5180">http://localhost:5180</a> and sign in with a demo account from{' '}
-          <code>backend/internal/store/demo-users.json</code>; <code>demo-admin@interview.com</code> opens the{' '}
+          Open <a href="http://localhost:5180">http://localhost:5180</a> and sign in as <code>tester00@test.com</code>{' '}
+          with the password <code>test</code>; <code>admin@test.com</code> (same password) opens the{' '}
           <Link to="/demo/admin-console">admin console</Link>. Traces are at{' '}
           <a href="http://localhost:16686">http://localhost:16686</a>.
         </p>
@@ -135,8 +135,10 @@ function Run() {
         <p>
           This starts Postgres and Jaeger in Docker, waits for them, then runs the backend and the portal side by side in
           your terminal. Press <strong>Ctrl+C</strong> to stop both. Open{' '}
-          <a href="http://localhost:5180">http://localhost:5180</a> and sign in with a demo account from{' '}
-          <code>backend/internal/store/demo-users.json</code>.
+          <a href="http://localhost:5180">http://localhost:5180</a> and sign in as <code>tester00@test.com</code>–
+          <code>tester09@test.com</code> (federal and California), <code>tester10@test.com</code>–
+          <code>tester19@test.com</code> (federal and New York), or <code>admin@test.com</code>. The password for all of
+          them is <code>test</code>.
         </p>
         <table className="metrics">
           <thead>
@@ -163,8 +165,8 @@ function Run() {
               </td>
             </tr>
             <tr>
-              <td>Mock IRS / California FTB</td>
-              <td>localhost:9101 / 9102</td>
+              <td>Mock IRS / California FTB / New York DTF</td>
+              <td>localhost:9101 / 9102 / 9103</td>
               <td>Inside the backend process. Fail 5% of status calls on purpose.</td>
             </tr>
             <tr>
@@ -183,7 +185,7 @@ function Run() {
           On first start the backend creates the tables and the demo users. A filed return is sent to its agency within
           seconds; after that, batch runs every 15 seconds pick up status changes. In Jaeger, each in-process service
           shows up separately: <code>refund-api</code>, <code>refund-processor</code>, <code>refund-batch</code>,{' '}
-          <code>agency-irs</code>, and <code>agency-ca-ftb</code>.
+          <code>agency-irs</code>, <code>agency-ca-ftb</code>, and <code>agency-ny-dtf</code>.
         </p>
       </Step>
 
@@ -236,7 +238,7 @@ function Debugging() {
             <tr><td><code>process</code></td><td>Duplicate screening and transmission to the agencies</td></tr>
             <tr><td><code>batch-run federal</code></td><td>One batch status run for one jurisdiction, then exits. Good for stepping through a run.</td></tr>
             <tr><td><code>batch-schedule</code></td><td>Batch runs every <code>BATCH_INTERVAL_SECONDS</code></td></tr>
-            <tr><td><code>agency</code></td><td>One mock agency (<code>AGENCY=irs</code> or <code>ca-ftb</code>, on <code>AGENCY_ADDR</code>)</td></tr>
+            <tr><td><code>agency</code></td><td>One mock agency (<code>AGENCY=irs</code>, <code>ca-ftb</code>, or <code>ny-dtf</code>, on <code>AGENCY_ADDR</code>)</td></tr>
           </tbody>
         </table>
         <p>
@@ -404,7 +406,8 @@ function Changes() {
         <dt>Add a demo user</dt>
         <dd>
           Add an entry to <code>backend/internal/store/demo-users.json</code> and restart the backend. Set{' '}
-          <code>"role": "admin"</code> for another admin. Existing users aren't changed.
+          <code>"role": "admin"</code> for another admin. Demo accounts are updated to match the file, including
+          passwords, every time the backend starts.
         </dd>
         <dt>Change the tax math</dt>
         <dd>
@@ -418,8 +421,9 @@ function Changes() {
         </dd>
         <dt>Start with an empty database</dt>
         <dd>
-          Run <code>make clean</code>, which deletes the Docker volume, then <code>make dev</code>. To clear just your
-          returns, use <strong>Reset demo returns</strong> in the portal.
+          Run <code>make reset-db</code>. It wipes every table and re-seeds the demo accounts, while dev mode or the
+          Docker stack keeps running. To clear just one tester's returns, use <strong>Reset demo returns</strong> in the
+          portal.
         </dd>
       </dl>
     </Page>
@@ -488,6 +492,13 @@ function Configuration() {
             </td>
             <td>30</td>
             <td>Idle time before you're signed out</td>
+          </tr>
+          <tr>
+            <td>
+              <code>TRUSTED_PROXIES</code>
+            </td>
+            <td>Loopback and private ranges</td>
+            <td>Proxies whose <code>X-Forwarded-For</code> entries are believed when finding the client's address</td>
           </tr>
           <tr>
             <td>

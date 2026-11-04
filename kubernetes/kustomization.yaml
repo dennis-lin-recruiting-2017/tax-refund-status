@@ -25,8 +25,12 @@ configMapGenerator:
       - SESSION_TTL_MINUTES=30
       # Port-forward is plain HTTP. Set true behind a TLS ingress.
       - COOKIE_SECURE=false
+      # Proxies whose X-Forwarded-For entries the API believes. The default (loopback and private
+      # ranges) covers local clusters; production lists only its load balancers and portal pods.
+      # - TRUSTED_PROXIES=10.0.0.0/8
       - PROCESSOR_INTERVAL_MS=2000
       - SIMILARITY_THRESHOLD=0.02
+      - SUBMIT_RPS=10
       # Batch status sync. Production: recheck on agency update cycles (hours), not seconds.
       - RECHECK_INTERVAL_SECONDS=10
       - BATCH_CHUNK_SIZE=100
@@ -34,6 +38,7 @@ configMapGenerator:
       - AGENCY_RPS=20
       - AGENCY_IRS_URL=http://agency-irs:9100
       - AGENCY_CA_FTB_URL=http://agency-ca-ftb:9100
+      - AGENCY_NY_DTF_URL=http://agency-ny-dtf:9100
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
 
 # Demo-only secrets so the stack runs out of the box. In a real cluster these come from a

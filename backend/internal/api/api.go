@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 
 	"taxrefund/internal/agency"
 	"taxrefund/internal/auth"
+	"taxrefund/internal/batch"
 	"taxrefund/internal/config"
 )
 
@@ -27,10 +29,13 @@ type Server struct {
 	login    *auth.RateLimiter
 	tp       trace.TracerProvider
 	agencies map[string]*agency.Client // by jurisdiction; used by the admin endpoints
+	syncer   *batch.Runner             // on-demand status checks after an admin change
+	views    *viewLog                  // admin views already audited, so polling isn't re-logged
 }
 
 func New(pool *pgxpool.Pool, authSvc *auth.Service, cfg config.Config, agencies map[string]*agency.Client, tp trace.TracerProvider) *Server {
-	return &Server{pool: pool, auth: authSvc, cfg: cfg, login: auth.NewRateLimiter(10, 5*time.Minute), tp: tp, agencies: agencies}
+	return &Server{pool: pool, auth: authSvc, cfg: cfg, login: auth.NewRateLimiter(10, 5*time.Minute), tp: tp,
+		agencies: agencies, syncer: batch.NewRunner(pool, cfg, agencies, tp), views: newViewLog(15 * time.Minute)}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -44,6 +49,7 @@ func (s *Server) Handler() http.Handler {
 	protected := http.NewServeMux()
 	protected.HandleFunc("GET /api/auth/me", s.handleMe)
 	protected.HandleFunc("GET /api/returns", s.handleListReturns)
+	protected.HandleFunc("GET /api/drafts/{form}", s.handleDraft)
 	protected.HandleFunc("POST /api/returns/{form}/estimate", s.handleEstimate)
 	protected.HandleFunc("POST /api/returns/{form}", s.handleSubmit)
 	protected.HandleFunc("DELETE /api/returns", s.handleReset)
@@ -100,23 +106,50 @@ func (s *Server) internalError(w http.ResponseWriter, r *http.Request, err error
 	writeError(w, http.StatusInternalServerError, "Something went wrong. Try again in a moment.")
 }
 
-func clientIP(r *http.Request) string {
-	// Behind nginx/ingress the first X-Forwarded-For entry is the client.
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return strings.TrimSpace(strings.Split(xff, ",")[0])
+func (s *Server) clientIP(r *http.Request) string { return clientIP(r, s.cfg.TrustedProxies) }
+
+// clientIP returns the address of the client behind any trusted proxies. X-Forwarded-For is read
+// from the right, because each proxy appends the address it received the request from: the first
+// entry that isn't a trusted proxy is the client. Anything to its left was written by the client and
+// could be forged. A request that didn't come from a trusted proxy is taken at its own address.
+func clientIP(r *http.Request, trusted []netip.Prefix) string {
+	client := r.RemoteAddr
+	if host, _, err := net.SplitHostPort(client); err == nil {
+		client = host
 	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
+	addr, err := netip.ParseAddr(client)
+	if err != nil || !isTrusted(addr, trusted) {
+		return client
 	}
-	return host
+	hops := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
+	for i := len(hops) - 1; i >= 0; i-- {
+		hop, err := netip.ParseAddr(strings.TrimSpace(hops[i]))
+		if err != nil {
+			break // a malformed entry ends the chain we can believe
+		}
+		client = hop.Unmap().String()
+		if !isTrusted(hop, trusted) {
+			break
+		}
+	}
+	return client
+}
+
+func isTrusted(addr netip.Addr, trusted []netip.Prefix) bool {
+	addr = addr.Unmap()
+	for _, p := range trusted {
+		if p.Contains(addr) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) audit(ctx context.Context, r *http.Request, userID *string, action string, detail map[string]any) {
 	if detail == nil {
 		detail = map[string]any{}
 	}
-	ip := clientIP(r)
+	ip := s.clientIP(r)
 	var ipArg any
 	if net.ParseIP(ip) != nil {
 		ipArg = ip

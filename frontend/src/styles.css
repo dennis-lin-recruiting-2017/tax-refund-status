@@ -173,8 +173,20 @@ legend { margin-bottom: 12px; padding: 0; font-weight: 650; font-size: 1.05rem; 
 .admin .muted { margin-bottom: 16px; }
 .search { margin-bottom: 16px; }
 .admin-list { display: grid; gap: 14px; }
-.admin-row { display: grid; gap: 14px; padding: 18px 20px; }
-.admin-row-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.taxpayer-group { display: grid; gap: 12px; padding: 16px 18px; }
+.taxpayer-head { padding-bottom: 4px; }
+.return-row { display: grid; gap: 12px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+.return-row-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.return-row-head .submission { margin-left: auto; }
+.latest-note { font-style: italic; }
+.editor { display: grid; gap: 10px; }
+.editor-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.field.compact { gap: 4px; }
+.field.compact > span { font-size: 13.5px; }
+.field.compact input, .field.compact select { height: 36px; font-size: 14.5px; }
+.field textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 14.5px; resize: vertical; }
+.field textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+.sent-note { color: var(--accent); font-weight: 600; }
 .admin .admin-row .muted { margin: 0; }
 .admin-meta { margin-top: 2px !important; }
 .submission { align-self: flex-start; padding: 2px 6px; border-radius: 4px; background: var(--hover); font-size: 12px; overflow-wrap: anywhere; }
@@ -183,7 +195,7 @@ legend { margin-bottom: 12px; padding: 0; font-weight: 650; font-size: 1.05rem; 
 .status-grid p.small { margin: 6px 0 0 !important; }
 .chip { display: inline-block; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); font-size: 13.5px; font-weight: 650; }
 .chip.processing, .chip.received { border-color: var(--accent); color: var(--accent); }
-.chip.approved, .chip.sent, .chip.accepted { border-color: var(--accent); background: var(--accent); color: var(--surface); }
+.chip.approved, .chip.sent, .chip.adjusted, .chip.accepted { border-color: var(--accent); background: var(--accent); color: var(--surface); }
 .chip.action_needed, .chip.action_required { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
 .tag { font-size: 12.5px; color: var(--muted); }
 .tag.manual { color: var(--warn); font-weight: 650; }

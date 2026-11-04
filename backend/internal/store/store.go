@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/exaring/otelpgx"
@@ -119,12 +120,38 @@ type DemoUser struct {
 	FullName   string `json:"fullName"`
 	TaxIDLast4 string `json:"taxIdLast4"`
 	Role       string `json:"role"`
+	State      string `json:"state"`
+	// Drafts are pre-filled forms, by form ID, that the portal loads so a tester can review and
+	// submit without typing. They're demo fixtures served from this embedded file and never
+	// stored in the database.
+	Drafts map[string]json.RawMessage `json:"drafts,omitempty"`
 }
 
-// SeedDemoUsers inserts the users in demo-users.json if they don't already exist.
-func SeedDemoUsers(ctx context.Context, pool *pgxpool.Pool, hash func(string) (string, error)) error {
+// DemoUsers returns the accounts defined in demo-users.json.
+func DemoUsers() ([]DemoUser, error) {
 	var users []DemoUser
-	if err := json.Unmarshal(demoUsers, &users); err != nil {
+	return users, json.Unmarshal(demoUsers, &users)
+}
+
+// DemoDraft returns the pre-filled form for a demo user, if the seed file has one.
+func DemoDraft(email, form string) (json.RawMessage, bool) {
+	users, err := DemoUsers()
+	if err != nil {
+		return nil, false
+	}
+	for _, u := range users {
+		if strings.EqualFold(u.Email, email) {
+			d, ok := u.Drafts[form]
+			return d, ok
+		}
+	}
+	return nil, false
+}
+
+// SeedDemoUsers creates or updates the users in demo-users.json.
+func SeedDemoUsers(ctx context.Context, pool *pgxpool.Pool, hash func(string) (string, error)) error {
+	users, err := DemoUsers()
+	if err != nil {
 		return err
 	}
 	for _, u := range users {
@@ -135,14 +162,19 @@ func SeedDemoUsers(ctx context.Context, pool *pgxpool.Pool, hash func(string) (s
 		if u.Role == "" {
 			u.Role = "taxpayer"
 		}
-		tag, err := pool.Exec(ctx, `INSERT INTO users (email, password_hash, full_name, tax_id_last4, role)
-			VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING`, u.Email, h, u.FullName, u.TaxIDLast4, u.Role)
-		if err != nil {
+		if u.State == "" {
+			u.State = "CA"
+		}
+		// Demo accounts always match the seed file, so editing it and restarting is enough.
+		if _, err := pool.Exec(ctx, `INSERT INTO users (email, password_hash, full_name, tax_id_last4, role, state)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, full_name = EXCLUDED.full_name,
+				tax_id_last4 = EXCLUDED.tax_id_last4, role = EXCLUDED.role, state = EXCLUDED.state,
+				failed_logins = 0, locked_until = NULL`,
+			u.Email, h, u.FullName, u.TaxIDLast4, u.Role, u.State); err != nil {
 			return err
 		}
-		if tag.RowsAffected() > 0 {
-			slog.Info("seeded demo user", "email", u.Email, "role", u.Role)
-		}
 	}
+	slog.Info("seeded demo users", "count", len(users))
 	return nil
 }

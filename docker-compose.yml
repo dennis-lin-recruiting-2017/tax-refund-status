@@ -11,6 +11,7 @@ x-backend-env: &backend-env
   AGENCY_ADMIN_KEY: integration-demo-agency-admin-key
   AGENCY_IRS_URL: http://agency-irs:9100
   AGENCY_CA_FTB_URL: http://agency-ca-ftb:9100
+  AGENCY_NY_DTF_URL: http://agency-ny-dtf:9100
   BATCH_INTERVAL_SECONDS: "15"
   RECHECK_INTERVAL_SECONDS: "10"
   OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
@@ -67,6 +68,17 @@ services:
     environment:
       <<: *agency-env
       AGENCY: ca-ftb
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+
+  agency-ny-dtf:
+    build: ./backend
+    command: ["agency"]
+    environment:
+      <<: *agency-env
+      AGENCY: ny-dtf
     depends_on:
       postgres:
         condition: service_healthy
