@@ -45,10 +45,10 @@ The problem statement puts this squarely in scope. Nothing in the docs or the de
 ## 3. Placeholder pages in the docs (empty today)
 
 Requirements:
-- [ ] Requirements (index), Functional, Refund Status Lookup.
-- [ ] Identity Verification.
-- [ ] Status States. Include Refund sent vs. Refund adjusted, Action needed, Accepted, and the state diagram.
-- [ ] Notifications.
+- [ ] Requirements (index).
+- [x] Functional, Refund Status Lookup, Identity Verification, and Notifications: testable requirements with Demo/Planned status.
+- [x] Status States: interactive state diagram, meanings and next steps, transition rules, and agency status mapping.
+- [ ] Status States gaps: e-file rejected, returned deposit, paper check, and refund offset aren't modeled in the demo.
 - [ ] Availability & Latency. SLOs: for example 99.95% in season, p99 read under 300 ms.
 
 Architecture:

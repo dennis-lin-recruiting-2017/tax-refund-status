@@ -8,6 +8,7 @@ import { securityPages } from './pages/Security.jsx'
 import Demo from './pages/Demo.jsx'
 import Capacity from './pages/Capacity.jsx'
 import ApiGateway from './pages/ApiGateway.jsx'
+import { functionalPages } from './pages/FunctionalRequirements.jsx'
 import SecurityRequirements from './pages/SecurityRequirements.jsx'
 import { batchSyncPages } from './pages/BatchSync.jsx'
 import Tracing from './pages/Tracing.jsx'
@@ -22,6 +23,7 @@ import { localKubernetesPages } from './pages/LocalKubernetes.jsx'
 // Pages that have real content. Everything else in the nav renders a placeholder.
 const pages = {
   overview: Overview,
+  ...functionalPages,
   ...securityPages,
   demo: Demo,
   capacity: Capacity,

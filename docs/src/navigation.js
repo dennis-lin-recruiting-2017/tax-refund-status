@@ -23,12 +23,13 @@ export const navTree = [
                 id: 'status-lookup',
                 title: 'Refund Status Lookup',
                 path: '/technical-design/requirements/functional/status-lookup',
+                summary: 'Seeing where a refund is, when it should arrive, and what to do.',
                 children: [
-                  { id: 'identity', title: 'Identity Verification', path: '/technical-design/requirements/functional/status-lookup/identity' },
-                  { id: 'status-states', title: 'Status States', path: '/technical-design/requirements/functional/status-lookup/states' },
+                  { id: 'identity', title: 'Identity Verification', path: '/technical-design/requirements/functional/status-lookup/identity', summary: 'Proving who someone is before showing anything.' },
+                  { id: 'status-states', title: 'Status States', path: '/technical-design/requirements/functional/status-lookup/states', summary: 'Every state a return can be in, and how it moves between them.' },
                 ],
               },
-              { id: 'notifications', title: 'Notifications', path: '/technical-design/requirements/functional/notifications' },
+              { id: 'notifications', title: 'Notifications', path: '/technical-design/requirements/functional/notifications', summary: 'Telling taxpayers when something changes, without giving phishers a template.' },
             ],
           },
           {
