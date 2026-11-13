@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -23,12 +24,13 @@ const (
 )
 
 type User struct {
-	ID         string        `json:"id"`
-	Email      string        `json:"email"`
-	FullName   string        `json:"fullName"`
-	TaxIDLast4 string        `json:"taxIdLast4"`
-	Role       string        `json:"role"`
-	States     []StateFiling `json:"states"` // where this taxpayer lives and works; returns to file first come first
+	ID          string        `json:"id"`
+	Email       string        `json:"email"`
+	FullName    string        `json:"fullName"`
+	TaxIDLast4  string        `json:"taxIdLast4"`
+	Role        string        `json:"role"`
+	States      []StateFiling `json:"states"`      // where this taxpayer lives and works; returns to file first come first
+	ColorScheme string        `json:"colorScheme"` // the portal color scheme they picked
 }
 
 // StateFiling is one state a taxpayer lives or works in, and how. In a state with an income tax,
@@ -47,7 +49,13 @@ const StatesSQL = `(SELECT COALESCE(json_agg(json_build_object('state', us.state
 	ORDER BY us.residency = 'resident', us.state), '[]')
 	FROM user_states us JOIN states st ON st.code = us.state WHERE us.user_id = u.id)`
 
-func (u User) IsAdmin() bool { return u.Role == "admin" }
+// colorSchemeSQL is the portal scheme of the user aliased u: the one they picked, or else their role's
+// default, so each role's pages look different at a glance: taxpayers Sunset, support Ocean, admins
+// Graphite. (Signed-out pages always use Evergreen; that's decided in the portal.)
+const colorSchemeSQL = `COALESCE(u.color_scheme, CASE u.role WHEN 'support' THEN 'ocean' WHEN 'admin' THEN 'graphite' ELSE 'sunset' END)`
+
+func (u User) IsAdmin() bool   { return u.Role == "admin" }
+func (u User) IsSupport() bool { return u.Role == "support" }
 
 // Filing returns how this user files in a state, if they do.
 func (u User) Filing(state string) (StateFiling, bool) {
@@ -132,7 +140,22 @@ type ctxKey struct{}
 
 func UserFrom(ctx context.Context) User { return ctx.Value(ctxKey{}).(User) }
 
-// Require loads the session user, slides the session expiry forward, and rejects anonymous requests.
+// refreshEvery is the most often a session's expiry is written. Checking a session is then a read,
+// so status reads don't depend on the primary accepting writes, and idle timeouts stay accurate to
+// within this interval.
+const refreshEvery = 5 * time.Minute
+
+// refreshInterval caps refreshEvery for short TTLs, so a session is always extended well before it ends.
+func refreshInterval(ttl time.Duration) time.Duration { return min(refreshEvery, ttl/2) }
+
+// needsRefresh reports whether a session expiring at expires is due to be extended: true once its
+// last extension (expires - ttl) is at least refreshInterval old.
+func needsRefresh(expires, now time.Time, ttl time.Duration) bool {
+	return !expires.After(now.Add(ttl - refreshInterval(ttl)))
+}
+
+// Require loads the session user and rejects anonymous requests. It only reads; when the session is
+// due, its expiry is extended in the background, and a failed extension never fails the request.
 func (s *Service) Require(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c, err := r.Cookie(CookieName)
@@ -140,27 +163,61 @@ func (s *Service) Require(next http.Handler) http.Handler {
 			writeErr(w, http.StatusUnauthorized, "Sign in to continue.")
 			return
 		}
+		token := hashToken(c.Value)
 		var u User
-		err = s.pool.QueryRow(r.Context(), `UPDATE sessions s
-			SET expires_at = now() + make_interval(secs => $2)
-			FROM users u
-			WHERE s.token_hash = $1 AND s.expires_at > now() AND u.id = s.user_id
-			RETURNING u.id, u.email, u.full_name, u.tax_id_last4, u.role, `+StatesSQL, hashToken(c.Value), s.ttl.Seconds()).
-			Scan(&u.ID, &u.Email, &u.FullName, &u.TaxIDLast4, &u.Role, &u.States)
-		if err != nil {
+		var expires time.Time
+		err = s.pool.QueryRow(r.Context(), `SELECT u.id, u.email, u.full_name, u.tax_id_last4, u.role, `+StatesSQL+`, `+colorSchemeSQL+`, s.expires_at
+			FROM sessions s JOIN users u ON u.id = s.user_id
+			WHERE s.token_hash = $1 AND s.expires_at > now()`, token).
+			Scan(&u.ID, &u.Email, &u.FullName, &u.TaxIDLast4, &u.Role, &u.States, &u.ColorScheme, &expires)
+		if errors.Is(err, pgx.ErrNoRows) {
 			s.setCookie(w, "", -1)
 			writeErr(w, http.StatusUnauthorized, "Your session has ended. Sign in again.")
 			return
+		}
+		if err != nil {
+			// The database couldn't say either way. Reject without clearing the cookie: the session may
+			// still be good once the database answers. Never trust a session we couldn't confirm.
+			slog.Warn("session check failed", "err", err)
+			writeErr(w, http.StatusServiceUnavailable, "We couldn't confirm you're signed in. Try again in a moment.")
+			return
+		}
+		if needsRefresh(expires, time.Now(), s.ttl) {
+			go s.extend(token)
 		}
 		s.setCookie(w, c.Value, s.ttl)
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, u)))
 	})
 }
 
+// extend pushes a session's expiry forward. The WHERE clause makes concurrent requests extend it once,
+// and leaves a session that was signed out or expired in the meantime alone.
+func (s *Service) extend(token []byte) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_, err := s.pool.Exec(ctx, `UPDATE sessions SET expires_at = now() + make_interval(secs => $2)
+		WHERE token_hash = $1 AND expires_at > now() AND expires_at <= now() + make_interval(secs => $3)`,
+		token, s.ttl.Seconds(), (s.ttl - refreshInterval(s.ttl)).Seconds())
+	if err != nil {
+		slog.Warn("session extension failed; it will be retried on a later request", "err", err)
+	}
+}
+
 // RequireAdmin rejects signed-in users who aren't admins. Use inside Require.
 func RequireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !UserFrom(r.Context()).IsAdmin() {
+			writeErr(w, http.StatusForbidden, "You don't have access to this.")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// RequireSupport rejects signed-in users who aren't support agents. Use inside Require.
+func RequireSupport(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !UserFrom(r.Context()).IsSupport() {
 			writeErr(w, http.StatusForbidden, "You don't have access to this.")
 			return
 		}

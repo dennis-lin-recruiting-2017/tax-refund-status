@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
+      - 'backend/internal/store/demo-users.json' # read by the Demo Users page
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 

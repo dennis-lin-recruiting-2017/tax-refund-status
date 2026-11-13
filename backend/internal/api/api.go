@@ -48,14 +48,19 @@ func (s *Server) Handler() http.Handler {
 
 	protected := http.NewServeMux()
 	protected.HandleFunc("GET /api/auth/me", s.handleMe)
+	protected.HandleFunc("PUT /api/me/color-scheme", s.handleSetColorScheme)
 	protected.HandleFunc("GET /api/returns", s.handleListReturns)
 	protected.HandleFunc("GET /api/drafts/{form}", s.handleDraft)
 	protected.HandleFunc("POST /api/returns/{form}/estimate", s.handleEstimate)
 	protected.HandleFunc("POST /api/returns/{form}", s.handleSubmit)
 	protected.HandleFunc("DELETE /api/returns", s.handleReset)
+	s.grantRoutes(protected)
 	admin := http.NewServeMux()
 	s.adminRoutes(admin)
 	protected.Handle("/api/admin/", auth.RequireAdmin(admin))
+	support := http.NewServeMux()
+	s.supportRoutes(support)
+	protected.Handle("/api/support/", auth.RequireSupport(support))
 	mux.Handle("/api/", s.auth.Require(protected))
 
 	// One span per request, named by method and path. Health checks aren't traced.

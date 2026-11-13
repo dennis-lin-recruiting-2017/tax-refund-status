@@ -24,6 +24,16 @@ export async function api(path, { method = 'GET', body } = {}) {
   return data
 }
 
+// Time left as m:ss, never below zero.
+export const formatCountdown = (ms) => {
+  const s = Math.max(0, Math.ceil(ms / 1000))
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
+// How far the browser's clock is behind the server's, from a response's serverTime. Countdowns add this
+// so they end when the server ends access, even on a computer whose clock is off.
+export const clockSkew = (serverTime) => (serverTime ? new Date(serverTime).getTime() - Date.now() : 0)
+
 export const formatMoney = (n) =>
   Number(n).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 

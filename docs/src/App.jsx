@@ -12,6 +12,8 @@ import Roadmap from './pages/Roadmap.jsx'
 import ApiGateway from './pages/ApiGateway.jsx'
 import { functionalPages } from './pages/FunctionalRequirements.jsx'
 import SecurityRequirements from './pages/SecurityRequirements.jsx'
+import Availability from './pages/Availability.jsx'
+import DemoUsers from './pages/DemoUsers.jsx'
 import { batchSyncPages } from './pages/BatchSync.jsx'
 import Tracing from './pages/Tracing.jsx'
 import { operationsPages } from './pages/Operations.jsx'
@@ -28,6 +30,7 @@ const pages = {
   ...functionalPages,
   ...securityPages,
   demo: Demo,
+  availability: Availability,
   capacity: Capacity,
   assumptions: Assumptions,
   roadmap: Roadmap,
@@ -37,6 +40,7 @@ const pages = {
   ...operationsPages,
   ...predictionPages,
   ...attackSurfacePages,
+  'demo-users': DemoUsers,
   'admin-console': AdminConsole,
   'high-level': HighLevelDesign,
   ...batchSyncPages,

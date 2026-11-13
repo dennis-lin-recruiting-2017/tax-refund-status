@@ -96,8 +96,25 @@ export const navTree = [
           },
         ],
       },
-      { id: 'prediction', title: 'Refund Time Prediction', path: '/architecture/prediction' },
-      { id: 'apis', title: 'API Design', path: '/architecture/apis' },
+      {
+        id: 'prediction',
+        title: 'Refund Time Prediction',
+        path: '/architecture/prediction',
+        children: [
+          {
+            id: 'prediction-phase-1',
+            title: 'Phase 1: Form Types',
+            path: '/architecture/prediction/phase-1',
+            summary: 'Which forms were filed, and how many of each.',
+          },
+          {
+            id: 'prediction-phase-2',
+            title: 'Phase 2: Amounts vs. Income',
+            path: '/architecture/prediction/phase-2',
+            summary: 'Each key figure relative to the taxpayer\'s income, so small items on large incomes add no time.',
+          },
+        ],
+      },
     ],
   },
   {
@@ -228,6 +245,7 @@ export const navTree = [
           },
         ],
       },
+      { id: 'demo-users', title: 'Demo Users', path: '/demo/users', summary: 'Every seeded account, where it lives, and which states it files in.' },
       { id: 'admin-console', title: 'Admin Console', path: '/demo/admin-console' },
       {
         id: 'local-development',

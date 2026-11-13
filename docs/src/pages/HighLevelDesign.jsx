@@ -117,7 +117,7 @@ const NODES = {
     points: [
       'Estimates when a refund will be available, as a date range, from a coarse feature vector with no identifiers.',
       'Called by the batch sync when a status changes, never on a page view, so the model stays off the peak read path.',
-      'Uses Kaplan-Meier survival curves per segment in the demo, and a gradient-boosted survival model in production. Both handle returns still waiting.',
+      'Uses Kaplan-Meier survival curves per segment in the demo. In production, a gradient-boosted survival model serves the estimates and a random survival forest checks them, with the wider range shown where they disagree. All three handle returns still waiting.',
       'If it\'s slow or down, the batch sync falls back to the agency\'s published guidance and carries on.',
       'Logs and spans carry the model version and the return token only, never features.',
     ],
@@ -262,7 +262,7 @@ const FLOWS = [
     steps: [
       { edges: ['db-ex'], text: 'Change data capture streams return_events for taxpayers who opted in, drops personal details, and swaps the return ID for a keyed hash whose key stays in production.' },
       { edges: ['ex-ts'], text: 'Coarse features and the label (days to deposit) land in a separate, audited environment. Small groups are merged, and data is deleted after 3 seasons.' },
-      { edges: ['ts-tr'], text: 'A nightly job trains a survival model, counting returns still waiting as censored, and evaluates error and range coverage overall and per group.' },
+      { edges: ['ts-tr'], text: 'A nightly job trains the two survival models, gradient-boosted and random forest, counting returns still waiting as censored, and evaluates error and range coverage overall and per group.' },
       { edges: ['tr-rg'], text: 'The candidate is registered with its model card and runs in shadow next to the current model.' },
       { edges: ['rg-pd'], text: 'Once approved, the predictor loads it. Estimates refresh as returns come due in the batch sync.' },
     ],

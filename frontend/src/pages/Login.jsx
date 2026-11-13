@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../auth.jsx'
+import { homeFor, useAuth } from '../auth.jsx'
 
 export default function Login() {
   const { user, login } = useAuth()
@@ -11,8 +11,7 @@ export default function Login() {
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
 
-  const home = (u) => (u.role === 'admin' ? '/admin' : '/')
-  if (user) return <Navigate to={location.state?.from ?? home(user)} replace />
+  if (user) return <Navigate to={location.state?.from ?? homeFor(user)} replace />
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -20,7 +19,7 @@ export default function Login() {
     setError('')
     try {
       const signedIn = await login(email, password)
-      navigate(location.state?.from ?? home(signedIn), { replace: true })
+      navigate(location.state?.from ?? homeFor(signedIn), { replace: true })
     } catch (err) {
       setError(err.message)
       setPassword('')
@@ -56,8 +55,8 @@ export default function Login() {
         </form>
         <p className="hint">
           Demo accounts: <code>tester00@test.com</code> to <code>tester09@test.com</code> (federal + California),{' '}
-          <code>tester10@test.com</code> to <code>tester19@test.com</code> (federal + New York), and{' '}
-          <code>admin@test.com</code>. tester08, tester09, and tester18 file in both states;
+          <code>tester10@test.com</code> to <code>tester19@test.com</code> (federal + New York),{' '}
+          <code>admin@test.com</code>, and <code>support01@test.com</code> (support agent). tester08, tester09, and tester18 file in both states;
           tester20 to tester22 live or work in states with no income tax. The password for all of them
           is <code>test</code>.
         </p>

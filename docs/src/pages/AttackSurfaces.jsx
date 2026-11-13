@@ -215,7 +215,7 @@ function Bots() {
             <tr>
               <td>Exhausting resources at peak</td>
               <td>Slowing the service when it's busiest</td>
-              <td><Demo /> 32 KB request bodies and strict input validation. <Planned /> Edge limits, autoscaling, and the shedding order in <Link to="/operations/peak-season">Peak Season Readiness</Link></td>
+              <td><Demo /> Request bodies capped at 32 KB by the portal and 16 KB by the API, and strict input validation. <Planned /> Edge limits, autoscaling, and the shedding order in <Link to="/operations/peak-season">Peak Season Readiness</Link></td>
             </tr>
             <tr>
               <td>Scraping</td>

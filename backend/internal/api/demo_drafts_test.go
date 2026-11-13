@@ -47,7 +47,7 @@ func loadDrafts(t *testing.T) []seeded {
 				want++
 			}
 		}
-		if u.Role != "admin" && len(u.Drafts) != want {
+		if (u.Role == "" || u.Role == "taxpayer") && len(u.Drafts) != want { // staff accounts file nothing
 			t.Errorf("%s: %d drafts; want the 1040 plus one per state with an income tax (%v)", u.Email, len(u.Drafts), u.Filings())
 		}
 	}

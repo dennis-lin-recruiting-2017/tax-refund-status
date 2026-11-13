@@ -1,4 +1,5 @@
 import { filingStatusLabel, FORMS, formatLine, formatMoney } from '../api.js'
+import SupportAccess from './SupportAccess.jsx'
 
 const REFUND_STEPS = ['received', 'processing', 'approved', 'sent']
 const NO_REFUND_STEPS = ['received', 'processing', 'accepted']
@@ -48,7 +49,8 @@ function Timeline({ ret }) {
   )
 }
 
-export default function ReturnCard({ ret }) {
+// showSupportAccess is off when support views the card: only the taxpayer can share or stop sharing.
+export default function ReturnCard({ ret, skew, onChange, showSupportAccess = true }) {
   const form = FORMS[ret.form]
   const latest = ret.events[ret.events.length - 1]
   const flagged = ret.status === 'action_needed'
@@ -121,6 +123,8 @@ export default function ReturnCard({ ret }) {
           </tbody>
         </table>
       </details>
+
+      {showSupportAccess && <SupportAccess ret={ret} skew={skew} onChange={onChange} />}
     </article>
   )
 }

@@ -308,7 +308,7 @@ func (s *Server) handleListReturns(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"taxYear": tax.TaxYear, "returns": rets})
+	writeJSON(w, http.StatusOK, map[string]any{"taxYear": tax.TaxYear, "returns": rets, "serverTime": time.Now()})
 }
 
 // handleReset deletes the signed-in user's returns so the demo can be run again.
@@ -349,6 +349,7 @@ type returnView struct {
 	TransmittedAt       *time.Time `json:"transmittedAt"`
 	LastCheckedAt       *time.Time `json:"lastCheckedAt"`
 	NextCheckAt         *time.Time `json:"nextCheckAt"`
+	SupportAccessUntil  *time.Time `json:"supportAccessUntil"` // end of the taxpayer's grant to support, if active
 	Computed            tax.Result `json:"computed"`
 	Events              []event    `json:"events"`
 }
@@ -368,7 +369,7 @@ func (s *Server) queryReturns(ctx context.Context, where string, args ...any) ([
 	rows, err := s.pool.Query(ctx, `SELECT r.id, r.form, r.jurisdiction, r.tax_year, r.filing_status,
 			r.refund_cents / 100, r.owed_cents / 100, r.bank_last4, r.status, r.status_reason,
 			to_char(r.expected_payment_date, 'YYYY-MM-DD'), r.submitted_at, r.status_changed_at,
-			r.transmitted_at, r.last_checked_at, r.next_check_at, r.computed,
+			r.transmitted_at, r.last_checked_at, r.next_check_at, `+returnGrantSQL+`, r.computed,
 			r.agency_refund_cents / 100, r.agency_owed_cents / 100, r.agency_message,
 			COALESCE((SELECT json_agg(json_build_object('status', e.status, 'note', e.note, 'createdAt', e.created_at)
 			          ORDER BY e.created_at, e.id)
@@ -381,7 +382,7 @@ func (s *Server) queryReturns(ctx context.Context, where string, args ...any) ([
 		var v returnView
 		err := row.Scan(&v.ID, &v.Form, &v.Jurisdiction, &v.TaxYear, &v.FilingStatus, &v.Refund, &v.Owed,
 			&v.BankLast4, &v.Status, &v.StatusReason, &v.ExpectedPaymentDate, &v.SubmittedAt,
-			&v.StatusChangedAt, &v.TransmittedAt, &v.LastCheckedAt, &v.NextCheckAt, &v.Computed,
+			&v.StatusChangedAt, &v.TransmittedAt, &v.LastCheckedAt, &v.NextCheckAt, &v.SupportAccessUntil, &v.Computed,
 			&v.AgencyRefund, &v.AgencyOwed, &v.AgencyMessage, &v.Events)
 		if j, ok := agency.Lookup(v.Jurisdiction); ok {
 			v.Agency = j.Name

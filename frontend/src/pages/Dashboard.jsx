@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { api, fileFirst, FORMS, formsFor, noReturnNotes } from '../api.js'
+import { api, clockSkew, fileFirst, FORMS, formsFor, noReturnNotes } from '../api.js'
 import { useAuth } from '../auth.jsx'
 import ReturnCard, { FINAL_STATUSES } from '../components/ReturnCard.jsx'
 
@@ -43,6 +43,8 @@ export default function Dashboard() {
   }
 
   const byForm = Object.fromEntries((data?.returns ?? []).map((r) => [r.form, r]))
+  // Measured once per response: recomputing on every render would make it look like new data.
+  const skew = useMemo(() => clockSkew(data?.serverTime), [data?.serverTime])
 
   return (
     <div className="page">
@@ -68,7 +70,7 @@ export default function Dashboard() {
         <div className="returns">
           {formsFor(user).map((id) => FORMS[id]).map((form) =>
             byForm[form.id] ? (
-              <ReturnCard key={form.id} ret={byForm[form.id]} />
+              <ReturnCard key={form.id} ret={byForm[form.id]} skew={skew} onChange={load} />
             ) : (
               <article key={form.id} className="panel return-card empty">
                 <p className="eyebrow">{form.agency} · {data.taxYear}</p>

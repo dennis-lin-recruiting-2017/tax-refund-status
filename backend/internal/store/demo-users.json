@@ -775,5 +775,13 @@
     "taxIdLast4": "0000",
     "role": "admin",
     "state": "CA"
+  },
+  {
+    "email": "support01@test.com",
+    "password": "test",
+    "fullName": "Support Agent 01",
+    "taxIdLast4": "0000",
+    "role": "support",
+    "states": []
   }
 ]

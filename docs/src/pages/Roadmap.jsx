@@ -35,7 +35,7 @@ const PHASES = [
     title: 'Season 2: predict and reach out',
     goal: 'Answer "when" as well as "where", and stop taxpayers having to keep checking.',
     rows: [
-      ['The survival model, shadowed against Season 1 outcomes before anyone sees it', 'planned', '/architecture/prediction'],
+      ['Phase 1 of the refund-time model: a survival model on form types, shadowed against Season 1 outcomes before anyone sees it', 'planned', '/architecture/prediction'],
       ['Notifications that say only that the status changed, never details', 'planned', '/technical-design/functional/notifications'],
       ['Support agents see the taxpayer\'s view, tied to a case', 'planned', '/security/identity-access/agents'],
       ['More states, and taxpayers who file in several', 'demo', '/technical-design/functional/status-lookup'],
@@ -48,6 +48,7 @@ const PHASES = [
     title: 'Later',
     goal: 'Widen who the service serves, once the core is trusted.',
     rows: [
+      ['Phase 2 of the refund-time model: figures relative to income, once it beats Phase 1 in every income band', 'planned', '/architecture/prediction'],
       ['Prior-year returns still in flight, such as extension filers', 'planned', '/operations/peak-season/extension-deadline'],
       ['Preparers see the returns their clients share with them', 'planned', '/security/identity-access/preparers'],
       ['Push feeds where agencies offer them, with polling kept for reconciliation', 'planned', '/architecture/batch-sync'],

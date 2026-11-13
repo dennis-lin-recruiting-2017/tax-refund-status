@@ -200,6 +200,10 @@ function ThreatModel() {
             <tr><td>Bulk data thieves</td><td>Steal the whole database</td><td>Exploiting a vulnerability, stolen cloud credentials, a compromised dependency or build</td></tr>
           </tbody>
         </table>
+        <p>
+          These are the main five. <Link to="/security/threat-model/actors">Threat Actors</Link> profiles ten, including
+          someone close to the taxpayer, dishonest preparers, and supply-chain attackers, with what stops each one.
+        </p>
       </section>
 
       <section>
@@ -240,6 +244,171 @@ function ThreatModel() {
           <li>A taxpayer's own device isn't compromised. We limit the damage with short sessions and alerts, but can't prevent it.</li>
           <li>Return preparation and e-file transmission security belong to the filing product. We cover them only where this service touches them.</li>
         </ul>
+      </section>
+    </Page>
+  )
+}
+
+// [actor, skill and resources, likelihood in season, impact, priority]
+const ACTOR_PRIORITIES = [
+  ['Credential stuffers', 'Moderate, with cheap automation at huge scale', 'Certain', 'Many accounts at once', 'Highest'],
+  ['Refund fraud rings', 'Organized and well funded', 'Certain', 'Stolen refunds, and victims\' real returns rejected', 'Highest'],
+  ['Phishers and impersonators', 'Low to moderate', 'Certain', 'Credentials and bank details taken outside our systems', 'High'],
+  ['Someone close to the taxpayer', 'Low skill, but knows the victim\'s personal details', 'Likely', 'Severe for one person: money, location, or control', 'High'],
+  ['Insiders', 'Legitimate access', 'Likely', 'Records viewed or sold; fraud helped', 'High'],
+  ['Dishonest or compromised preparers', 'Legitimate delegated access', 'Possible', 'Every client of that preparer', 'Medium'],
+  ['Bulk data thieves and ransomware crews', 'High, organized', 'Possible', 'Everyone\'s data, or the service down at peak', 'High'],
+  ['Supply-chain attackers', 'High', 'Unlikely, but rising', 'Code running inside the service', 'Medium'],
+  ['Nation-state actors', 'Very high', 'Unlikely', 'Bulk data on citizens, quietly', 'Medium'],
+  ['Opportunistic scanners', 'Low, automated', 'Constant', 'Low, if the basics are right', 'Low'],
+]
+
+// Each profile: who, what they want, how they'd go after this service, what stops them, how we'd notice.
+const ACTOR_PROFILES = [
+  {
+    name: 'Credential stuffers',
+    wants: 'Working sign-ins, to resell or to use themselves. Tax accounts are valuable because they lead to refunds and identity data.',
+    how: 'Replay passwords leaked from other sites against our sign-in, spread across botnets and residential proxies so each address makes only a few attempts.',
+    stop: [['Per-IP, per-account, and per-password limits, and lockout an attacker can\'t turn against the owner', '/security/abuse-prevention/rate-limiting'], ['Edge bot defense and breached-password checks', '/security/abuse-prevention/bot-defense'], ['Passkeys and second factors, so a password alone opens nothing', '/security/identity-access/taxpayer']],
+    notice: 'Failure rates and lockouts spiking, many accounts failing from few sources, and success rates that are oddly low for real people.',
+  },
+  {
+    name: 'Refund fraud rings',
+    wants: 'Refunds paid to accounts they control, under stolen identities, filed before the real taxpayer files.',
+    how: 'File templated returns early in the season, route many refunds to the same few bank accounts, and use the status service to see which filings got through.',
+    stop: [['Duplicate screening on bank fingerprints and near-identical figures, holding matches before they\'re sent', '/security/abuse-prevention'], ['Nothing in this service can change a refund amount or bank account', '/security'], ['Identity proofing before a return is filed', '/security/identity-access/taxpayer']],
+    notice: 'Many returns into one bank fingerprint, filing velocity per device or network, and accounts that check status unusually often.',
+  },
+  {
+    name: 'Phishers and impersonators',
+    wants: 'Credentials and bank details, taken on sites and channels they control.',
+    how: 'Lookalike domains and "there\'s a problem with your refund" emails and texts, timed to refund release dates and the April deadline.',
+    stop: [['Notifications that say only that something changed, with no links asking for anything, so ours can\'t be used as a template', '/technical-design/functional/notifications'], ['Passkeys, which can\'t be phished onto a lookalike site', '/security/identity-access/taxpayer']],
+    notice: 'Brand monitoring for lookalike domains (taken down quickly), DMARC reports of spoofed mail, and support calls about messages we didn\'t send.',
+  },
+  {
+    name: 'Someone close to the taxpayer',
+    wants: 'An ex-partner, a family member, or a housemate who wants to see the refund amount, where it\'s going, or where the taxpayer now lives, or to control the money.',
+    how: 'They know the taxpayer\'s tax ID, date of birth, and history, which defeats knowledge-based questions, and they may have used the taxpayer\'s devices.',
+    stop: [['No knowledge-based questions anywhere; passkeys and second factors instead', '/security/identity-access/taxpayer'], ['Alerts for new devices, a list of active sessions, and sign out everywhere', '/security/identity-access/taxpayer'], ['Support sees a return only when the taxpayer shares it from inside their own account', '/security/identity-access/agents']],
+    notice: 'Sign-ins from a new device in an unusual pattern, and recovery attempts the owner didn\'t start. Support is trained to recognize callers who aren\'t the taxpayer.',
+  },
+  {
+    name: 'Insiders',
+    wants: 'Usually curiosity. Sometimes money: selling records, or helping a fraud ring by releasing held returns.',
+    how: 'Misuse legitimate support or admin access, often looking up people they know or browsing in bulk.',
+    stop: [['Support sees a return only while its taxpayer shares it, 5 minutes at a time; every view audited', '/security/threat-model/attack-surfaces/insider'], ['Two people to release a held return', '/security/threat-model/attack-surfaces/insider'], ['No person can decrypt return figures in production', '/security/data-protection/encryption']],
+    notice: 'Views without a case, out of hours, or in bulk; searches for names rather than case work; releases clustered on one admin.',
+  },
+  {
+    name: 'Dishonest or compromised preparers',
+    wants: 'Their clients\' refunds, or their clients\' data, or an attacker who has taken over the preparer\'s account wants the same.',
+    how: 'Use delegated access to many clients at once, sometimes from a firm whose own security is weak.',
+    stop: [['Verified PTIN and EFIN, client grants per taxpayer that the taxpayer can revoke, and MFA for preparers', '/security/identity-access/preparers']],
+    notice: 'A preparer touching far more clients than usual, or from new locations; clients revoking grants.',
+  },
+  {
+    name: 'Bulk data thieves and ransomware crews',
+    wants: 'The whole database to sell, or the service held hostage when downtime costs the most.',
+    how: 'Exploit a vulnerability, steal cloud or database credentials, or move sideways from another compromised system.',
+    stop: [['Minimal data: last 4 digits only, no full bank numbers, figures encrypted per taxpayer', '/security/data-protection/minimization'], ['Workload identity, deny-by-default networking, and per-service credentials', '/security/service-auth'], ['Keys in a separate account, and backups that ransomware can\'t reach', '/security/data-protection/encryption']],
+    notice: 'Unusual KMS decrypt volume, large reads or exports, new egress destinations, and access from unexpected identities.',
+  },
+  {
+    name: 'Supply-chain attackers',
+    wants: 'Code running inside the service, through a dependency, a base image, or the build.',
+    how: 'Publish a malicious package version, compromise a maintainer, or steal the credentials that deploy.',
+    stop: [['Pinned and reviewed dependencies, signed images built in isolated CI, and deploy credentials that can\'t be used outside the pipeline', '/security/service-auth']],
+    notice: 'Unexpected dependency changes in review, images without valid signatures blocked at deploy, and new outbound connections from pods.',
+  },
+  {
+    name: 'Nation-state actors',
+    wants: 'Data on millions of people for intelligence, taken quietly and kept for years.',
+    how: 'Patient, skilled intrusion: zero-days, supply chains, and long dwell time.',
+    stop: [['We don\'t claim to defeat them. The same controls raise the cost, minimal data limits what there is to take, and monitoring shortens how long they go unseen.', '/security/monitoring']],
+    notice: 'The same detection as above, plus threat intelligence shared through industry groups, the IRS, and government partners.',
+  },
+  {
+    name: 'Opportunistic scanners',
+    wants: 'Any easy way in: a known vulnerability, an exposed admin page, a default password.',
+    how: 'Automated scans of the whole internet.',
+    stop: [['Patching on a schedule, one public entry point, no exposed admin surfaces, and an edge firewall', '/security/threat-model/attack-surfaces']],
+    notice: 'Edge logs. Mostly noise, which is the point: they find nothing.',
+  },
+]
+
+function ThreatActors() {
+  return (
+    <Page
+      eyebrow="Threat Model"
+      title="Threat Actors"
+      deeper={false}
+      lede="Who would attack a tax refund service, what each wants, how they'd go about it here, and what stops them. Refunds are money and returns are identity, so this service draws more than its share of attackers, mostly in the same weeks taxpayers need it most."
+    >
+      <section>
+        <h2>Priorities</h2>
+        <div className="table-scroll">
+          <table className="metrics">
+            <thead>
+              <tr><th>Actor</th><th>Skill and resources</th><th>Likelihood in season</th><th>Impact</th><th>Priority</th></tr>
+            </thead>
+            <tbody>
+              {ACTOR_PRIORITIES.map(([actor, skill, likely, impact, priority]) => (
+                <tr key={actor}><td>{actor}</td><td>{skill}</td><td>{likely}</td><td>{impact}</td><td>{priority}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Priority weighs how likely an attack is in filing season against how much harm it does, and to how many people.
+          The two highest are certain to happen at scale every season.
+        </p>
+      </section>
+
+      <section>
+        <h2>Profiles</h2>
+        {ACTOR_PROFILES.map((a) => (
+          <div key={a.name} className="actor">
+            <h3>{a.name}</h3>
+            <dl className="actor-facts">
+              <dt>Wants</dt><dd>{a.wants}</dd>
+              <dt>Here, they'd</dt><dd>{a.how}</dd>
+              <dt>Stopped by</dt>
+              <dd>
+                <ul>
+                  {a.stop.map(([text, to]) => <li key={text}><Link to={to}>{text}</Link></li>)}
+                </ul>
+              </dd>
+              <dt>We notice</dt><dd>{a.notice}</dd>
+            </dl>
+          </div>
+        ))}
+      </section>
+
+      <section>
+        <h2>When they're busiest</h2>
+        <table className="metrics compare">
+          <thead>
+            <tr><th>When</th><th>Who</th><th>Why</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Late January to February</td><td>Refund fraud rings</td><td>Filing before the real taxpayer is what makes identity fraud pay; the first refunds go out in these weeks.</td></tr>
+            <tr><td>Refund release dates</td><td>Phishers, credential stuffers</td><td>Taxpayers are waiting for money and expect messages about it, so lures work best.</td></tr>
+            <tr><td>The week before April 15</td><td>Everyone, especially bots</td><td>Attack traffic hides in the year's biggest legitimate peak.</td></tr>
+            <tr><td>Off season</td><td>Bulk data thieves, supply-chain attackers</td><td>Patient attacks don't need the season; fewer people are watching closely.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Why holding less helps</h2>
+        <p>
+          Most of these actors want one of three things: sign-ins, money, or data. This service can't move money, and it
+          holds the least data that works: no full tax IDs, no full bank numbers, and return figures encrypted per taxpayer.
+          A thief who gets the whole database gets far less than they came for, which makes this a worse target than one
+          that holds everything. See <Link to="/security/data-protection/minimization">Minimization &amp; Retention</Link>.
+          What's assumed out of scope is listed on the <Link to="/security/threat-model">Threat Model</Link> page.
+        </p>
       </section>
     </Page>
   )
@@ -970,13 +1139,577 @@ function DataProtection() {
             <tr><th>Data</th><th>Kept for</th></tr>
           </thead>
           <tbody>
-            <tr><td>Sessions</td><td>Until expiry or sign-out</td></tr>
-            <tr><td>Returns and status history</td><td>The current season, plus the period the product's records policy and tax rules require</td></tr>
-            <tr><td>Audit log</td><td>Several years, in write-once storage, per the security program</td></tr>
+            <tr><td>Sessions</td><td>Until expiry (30 minutes idle) or sign-out</td></tr>
+            <tr><td>Return figures</td><td>Until the refund settles, plus 18 months</td></tr>
+            <tr><td>Status history</td><td>3 years</td></tr>
+            <tr><td>Audit log</td><td>7 years, in write-once storage</td></tr>
             <tr><td>Training data <Planned /></td><td>3 seasons, then deleted; withdrawn consent removes it from future training</td></tr>
-            <tr><td>Closed accounts</td><td>Deleted or anonymized after the required retention period, including from backups as they age out</td></tr>
+            <tr><td>Closed accounts</td><td>Anonymized after the required period; their data keys are destroyed, so backups can't be read either</td></tr>
           </tbody>
         </table>
+        <p>
+          Every kind of data, with why we hold it and how it's deleted, is in{' '}
+          <Link to="/security/data-protection/minimization">Minimization &amp; Retention</Link>. Keys are in{' '}
+          <Link to="/security/data-protection/encryption">Encryption &amp; Key Management</Link>.
+        </p>
+      </section>
+    </Page>
+  )
+}
+
+// [layer, protects against, mechanism, status]
+const ENCRYPTION_LAYERS = [
+  ['Browser to edge', 'Eavesdropping and tampering on the internet', 'TLS 1.2 or later (1.3 preferred) with HSTS and modern ciphers only', 'planned'],
+  ['Between services', 'A compromised pod or node reading traffic', 'Mutual TLS from the service mesh, with short-lived workload certificates', 'planned'],
+  ['Services to Postgres', 'Reading queries and results on the network', 'TLS with certificate verification (verify-full)', 'planned'],
+  ['Disks, backups, and snapshots', 'A stolen disk, snapshot, or backup file', 'Storage encryption under a key in the managed key service (KMS)', 'planned'],
+  ['Return figures', 'A database dump, an over-broad query, or a leaked replica', 'Envelope encryption of each return\'s figures, under a key per taxpayer per tax year', 'planned'],
+  ['Bank account', 'Recovering the number from the database', 'Never stored. Last 4 digits, plus a keyed HMAC-SHA256 fingerprint for duplicate screening', 'demo'],
+  ['Passwords and sessions', 'Signing in with values read from the database', 'Argon2id password hashes; sessions stored as SHA-256 hashes of the token', 'demo'],
+  ['Secrets', 'Credentials read from config or the cluster', 'A secrets manager, delivered to each workload at runtime and never written to images or the repo', 'planned'],
+]
+
+// [key, protects, held in, who can use it, rotation]
+const KEYS = [
+  ['Root keys', 'The keys below', 'KMS, backed by hardware security modules; they never leave it', 'Only KMS itself, to wrap and unwrap', 'Yearly, automatically'],
+  ['Return-data key-encryption key', 'Each taxpayer\'s data keys', 'KMS', 'The API and processor, to unwrap; nothing else', 'Yearly, and at once if compromise is suspected'],
+  ['Data key, per taxpayer per tax year', 'That taxpayer\'s return figures for that year', 'Stored wrapped, beside the data; unwrapped only in memory', 'The API and processor, while serving that taxpayer', 'Never re-encrypted in place; destroyed to delete the data (crypto-shredding)'],
+  ['Bank fingerprint key', 'The keyed fingerprints', 'The secrets manager', 'The API, to fingerprint new returns', 'A new key each tax year, since duplicate screening only compares within a season'],
+  ['Backup key', 'Backups and snapshots', 'KMS, in a separate account from production', 'The backup service only', 'Yearly'],
+  ['TLS and workload certificates', 'Traffic', 'Issued automatically', 'The workload they belong to', 'Edge: 90 days. Workloads: hours'],
+  ['Database credentials', 'Postgres', 'Issued per workload by the secrets manager', 'One workload each', 'Short-lived, renewed automatically'],
+  ['Agency credentials', 'Calls to each agency', 'The secrets manager', 'The processor and batch sync for that agency', 'On each agency\'s schedule, and at once after an incident'],
+]
+
+function Encryption() {
+  return (
+    <Page
+      eyebrow="Data Protection"
+      title="Encryption & Key Management"
+      deeper={false}
+      lede="What's encrypted, under which keys, who can use them, and what happens when a key has to change or is exposed. The aim: a copy of the data alone, a dump, a backup, or a stolen disk, is never enough to read a taxpayer's figures."
+    >
+      <section>
+        <h2>Every layer</h2>
+        <table className="metrics">
+          <thead>
+            <tr><th>Layer</th><th>Protects against</th><th>How</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            {ENCRYPTION_LAYERS.map(([layer, against, how, status]) => (
+              <tr key={layer}><td>{layer}</td><td>{against}</td><td>{how}</td><td>{status === 'demo' ? <Demo /> : <Planned />}</td></tr>
+            ))}
+          </tbody>
+        </table>
+        <p>
+          Hashing is not encryption: the password hash, session hash, and bank fingerprint can't be turned back into the
+          original, which is the point. Only return figures need to be read back, so only they are encrypted with keys we
+          can use.
+        </p>
+      </section>
+
+      <section>
+        <h2>Envelope encryption for return figures</h2>
+        <p>
+          Storage encryption protects a stolen disk, but not a database dump or a query run with stolen credentials, because
+          the database decrypts for anyone who can connect. Return figures get a second layer the database can't remove:
+        </p>
+        <ol>
+          <li>Each taxpayer gets a data key per tax year (AES-256-GCM), generated by KMS.</li>
+          <li>The figures (the return's inputs, the calculation, refund and balance amounts, and agency messages) are encrypted with it before they're written.</li>
+          <li>The data key is stored beside the data, wrapped by the return-data key in KMS. Reading the figures takes the row and a KMS call that's allowed, logged, and can be cut off.</li>
+        </ol>
+        <table className="metrics compare">
+          <thead>
+            <tr><th>Encrypted</th><th>Left readable, and why</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Return inputs and calculation lines, refund and balance amounts (as filed and as the agency reports them), agency messages</td>
+              <td>IDs, status, dates, form, and jurisdiction: the batch sync, the queues, and the status page query and index them. The last 4 digits and the fingerprint are already minimized. The duplicate-screening feature vector has to be readable for its similarity index; it holds no identifiers or bank details.</td>
+            </tr>
+          </tbody>
+        </table>
+        <ul className="points">
+          <li>
+            <strong>Fast enough for the read path.</strong> Unwrapped data keys are cached in memory for a few minutes, so a
+            status read costs microseconds of decryption and a KMS call only on a cache miss.
+          </li>
+          <li>
+            <strong>Status survives a KMS outage.</strong> Status and dates are readable, so the status page keeps
+            answering while KMS is down; only the figures wait. That's the order the{' '}
+            <Link to="/technical-design/non-functional/availability">Availability &amp; Latency</Link> requirements set.
+          </li>
+          <li>
+            <strong>Deleting a key deletes the data.</strong> Destroying one taxpayer's data key for a year makes those
+            figures unreadable everywhere at once, including in backups. See{' '}
+            <Link to="/security/data-protection/minimization">Minimization &amp; Retention</Link>.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Keys</h2>
+        <table className="metrics">
+          <thead>
+            <tr><th>Key</th><th>Protects</th><th>Held in</th><th>Who can use it</th><th>Rotation</th></tr>
+          </thead>
+          <tbody>
+            {KEYS.map(([key, protects, held, who, rotation]) => (
+              <tr key={key}><td>{key}</td><td>{protects}</td><td>{held}</td><td>{who}</td><td>{rotation}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Who can use a key</h2>
+        <ul className="checks">
+          <li><Planned /> Each workload gets only the key operations it needs, through its own identity. The batch sync and the portal never decrypt figures.</li>
+          <li><Planned /> No person has decrypt access in production. Break-glass access needs two people, expires within hours, and is audited.</li>
+          <li><Planned /> Every KMS call is logged to the security monitoring system, and an unusual volume of decrypts, or decrypts from an unexpected identity, pages on-call. See <Link to="/security/monitoring">Security Monitoring</Link>.</li>
+          <li><Planned /> Keys live in a separate cloud account from the data, so one compromised account isn't enough to read both.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Rotation</h2>
+        <ul className="points">
+          <li>
+            <strong>Wrapping keys rotate cheaply.</strong> Rotating the return-data key means re-wrapping the small data keys,
+            not re-encrypting the figures. Old versions stay able to unwrap until everything is re-wrapped, then are disabled.
+          </li>
+          <li>
+            <strong>The fingerprint key can't be rotated in place,</strong> because the full bank numbers aren't kept to
+            recompute fingerprints. Each tax year gets a new key, which also limits what a leaked key exposes to one season.
+          </li>
+          <li>
+            <strong>Short-lived beats rotated.</strong> Certificates and database credentials are issued for hours, so there's
+            little to rotate and a leaked one expires on its own.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>If a key is exposed</h2>
+        <ol className="timeline">
+          <li><strong>Disable</strong><span>Disable the key version in KMS, or revoke the secret, so it stops working everywhere at once.</span></li>
+          <li><strong>Replace</strong><span>Issue a new version, re-wrap what it protected, and redeploy the workloads that use it.</span></li>
+          <li><strong>Scope</strong><span>Use the KMS log to find every use of the old key since the exposure could have started.</span></li>
+          <li><strong>Respond</strong><span>Follow <Link to="/security/audit-response">Audit &amp; Incident Response</Link>, including notifying agencies, taxpayers, and regulators if data could have been read.</span></li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>The demo today</h2>
+        <ul className="checks">
+          <li><Demo /> Passwords are Argon2id hashes and sessions are stored as SHA-256 hashes of the token.</li>
+          <li><Demo /> Bank numbers are never stored: the last 4 digits and an HMAC-SHA256 fingerprint only. The fingerprint key must be at least 16 bytes outside development.</li>
+          <li><Demo /> Secrets reach workloads as Kubernetes Secrets, not baked into images.</li>
+          <li><Planned /> Gaps: plain HTTP behind a port-forward, an unencrypted Postgres connection (<code>sslmode=disable</code>), Kubernetes Secrets stored unencrypted in the cluster, no field-level encryption, and one fingerprint key for every season.</li>
+        </ul>
+      </section>
+    </Page>
+  )
+}
+
+// [data, why we hold it, what we keep, kept for, how it's deleted]
+const INVENTORY = [
+  ['Account: email and name', 'Signing in, and greeting the taxpayer', 'As given', 'While the account is open, then the records period', 'Anonymized when the account is closed and the period ends'],
+  ['Password', 'Signing in', 'An Argon2id hash', 'Until changed or the account is closed', 'Replaced or deleted'],
+  ['Sessions', 'Staying signed in', 'A SHA-256 hash of the token, with an expiry', '30 minutes idle, or until sign-out', 'Deleted at sign-out; expired ones are swept by the processor'],
+  ['Tax ID', 'Showing which identity a return belongs to', 'The last 4 digits', 'With the account', 'With the account'],
+  ['Bank account', 'Showing where the refund goes, and spotting duplicate filings', 'The last 4 digits, plus a keyed fingerprint. The full number goes from the filing product to the agency and never reaches this service', 'With the return; fingerprints are useful for one season', 'With the return; destroying the season\'s fingerprint key makes old fingerprints meaningless'],
+  ['Return figures', 'Showing the return and its refund', 'The figures the screen and estimate need, encrypted per taxpayer per year', 'Until the refund settles, plus 18 months for amended returns and agency notices', 'The data key is destroyed, then the tax-year partition is dropped'],
+  ['Status history and agency messages', 'Showing where a refund has been, and answering disputes', 'Status, date, and message', '3 years', 'Tax-year partitions dropped'],
+  ['Duplicate-screening vector', 'Spotting near-identical returns in the same season', 'Coarse derived numbers, with no identifiers or bank details', 'The season, plus 90 days', 'Cleared from the return'],
+  ['Support access grants', 'Proving when support could see a return, and who ended it', 'Return, times, and who ended it', 'With the audit log', 'With the audit log'],
+  ['Audit log', 'Investigations, and evidence for audits', 'Who did what, when, and from where; never return figures', '7 years, in write-once storage', 'Expires from write-once storage'],
+  ['Request logs and traces', 'Running and debugging the service', 'Method, path, status, timing, and trace ID; never bodies', 'Logs 30 days, traces 14 days', 'Expire in the log and trace stores'],
+  ['Model training data', 'Training the refund-time model, with consent', 'Banded features and outcomes, keyed by a hash, never identifiers', '3 seasons', 'Deleted, and left out of the next training run as soon as consent is withdrawn'],
+  ['Backups', 'Recovering from failures and mistakes', 'Encrypted copies of the database', '35 days', 'Age out; crypto-shredding covers them sooner'],
+]
+
+function Minimization() {
+  return (
+    <Page
+      eyebrow="Data Protection"
+      title="Minimization & Retention"
+      deeper={false}
+      lede="Collect only what a feature needs, keep it in the smallest form that works, and delete it when its reason ends, for real, including from backups. Data we don't hold can't leak."
+    >
+      <section>
+        <h2>Principles</h2>
+        <ul className="points">
+          <li><strong>A reason for everything.</strong> Every field has a purpose: showing status, estimating the refund date, screening for fraud, supporting the taxpayer, or proving what happened. No purpose, no field.</li>
+          <li><strong>The smallest form that works.</strong> Last 4 digits instead of a number, a keyed fingerprint instead of an account, bands instead of amounts, counts instead of contents.</li>
+          <li><strong>Consent where the law asks for it.</strong> Training the model uses return information only with separate opt-in consent under §7216. See <Link to="/security/compliance">Privacy &amp; Compliance</Link>.</li>
+          <li><strong>Shortest retention the rules allow.</strong> Each kind of data has a period, an owner, and a job that deletes it.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Inventory</h2>
+        <div className="table-scroll">
+          <table className="metrics">
+            <thead>
+              <tr><th>Data</th><th>Why we hold it</th><th>What we keep</th><th>Kept for</th><th>Deleted by</th></tr>
+            </thead>
+            <tbody>
+              {INVENTORY.map(([data, why, keep, period, how]) => (
+                <tr key={data}><td>{data}</td><td>{why}</td><td>{keep}</td><td>{period}</td><td>{how}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The periods are the design's starting point. Counsel sets the final ones against tax-record rules (for example,
+          preparers keep a copy or list of returns for 3 years under IRC §6107), state law, and the product's records
+          policy. The filing product, not this service, keeps the authoritative copy of each return.
+        </p>
+      </section>
+
+      <section>
+        <h2>How deletion works</h2>
+        <ul className="points">
+          <li>
+            <strong>Whole seasons at once.</strong> Returns and status history are partitioned by tax year (see{' '}
+            <Link to="/technical-design/non-functional/capacity">Capacity Estimates</Link>), so ending a season's retention
+            drops a partition instead of deleting millions of rows one by one.
+          </li>
+          <li>
+            <strong>Crypto-shredding for the rest.</strong> Destroying a taxpayer's data key for a year makes their figures
+            unreadable in the database, its replicas, and every backup at the same moment, without waiting 35 days for the
+            backups to age out. See <Link to="/security/data-protection/encryption">Encryption &amp; Key Management</Link>.
+          </li>
+          <li>
+            <strong>Scheduled, and checked.</strong> Each retention job reports how much it deleted and alerts if it didn't run,
+            so a silently broken job can't keep data for years.
+          </li>
+          <li>
+            <strong>Legal holds win.</strong> A hold placed for an investigation or litigation suspends deletion for the named
+            accounts only, and is recorded in the audit log with who placed it and why.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>When a taxpayer asks</h2>
+        <ol className="timeline">
+          <li><strong>Verify</strong><span>The request comes from a signed-in, step-up-verified account, never from an email alone.</span></li>
+          <li><strong>Export</strong><span>The taxpayer can download what we hold about them first.</span></li>
+          <li><strong>Delete</strong><span>Sessions end, the account is anonymized, and data keys are destroyed for every year no rule requires us to keep.</span></li>
+          <li><strong>Keep only what's required</strong><span>What a tax-record rule or legal hold requires stays, encrypted and untouched, until its period ends. The taxpayer is told what was kept and why.</span></li>
+          <li><strong>Confirm</strong><span>The taxpayer gets a confirmation, and the request and its outcome go in the audit log.</span></li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>Minimization in practice</h2>
+        <ul className="checks">
+          <li><Demo /> Screens and API responses show only what they need: last 4 digits, never full identifiers, and <code>Cache-Control: no-store</code>.</li>
+          <li><Demo /> Support sees a return only while its taxpayer is sharing it, for 5 minutes at a time, and never sees a full tax ID or bank account.</li>
+          <li><Demo /> Request logs never contain bodies, and audit entries never contain return figures.</li>
+          <li><Demo /> Expired sessions are deleted, and the demo and its tests use synthetic accounts only.</li>
+          <li><Planned /> Span attributes come from an allowlist, so personal data can't drift into traces.</li>
+          <li><Planned /> Model features leave production only as bands and counts, with rare combinations rolled up. See <Link to="/architecture/prediction">Refund Time Prediction</Link>.</li>
+          <li><Planned /> Retention jobs for returns, status history, the duplicate-screening vectors, and the audit log. The demo keeps them until a return is reset.</li>
+        </ul>
+      </section>
+    </Page>
+  )
+}
+
+// [where, counted by, limit, when exceeded, status]
+const RATE_LIMITS = [
+  ['Edge, every request', 'Client IP, and network reputation', 'About 300 requests a minute per IP; less from networks with a bad reputation', '429 with Retry-After, or a challenge', 'planned'],
+  ['Sign-in, per client', 'Client IP, read through trusted proxies', '10 attempts every 5 minutes', '429 with Retry-After', 'demo'],
+  ['Sign-in, per account', 'The account, however many IPs try it', '5 failures, then the lockout below', 'The same failure message as a wrong password', 'demo'],
+  ['Password spraying', 'One password tried across many accounts', 'The same password against more than 20 accounts in an hour', 'Block the sources, and alert', 'planned'],
+  ['Signed-in reads', 'Session', '120 a minute: several times what the portal\'s polling needs', '429; the portal backs off and keeps showing the last status', 'planned'],
+  ['Filing a return', 'Account', '10 an hour', '429 with a plain message', 'planned'],
+  ['Sharing with support', 'Account', '20 grants an hour', '429', 'planned'],
+  ['Staff searches and views', 'Staff account', 'Set from each role\'s normal working pace', 'Slow down, and alert security: bulk viewing is the insider pattern', 'planned'],
+]
+
+function RateLimiting() {
+  return (
+    <Page
+      eyebrow="Abuse Prevention"
+      title="Rate Limiting & Lockout"
+      deeper={false}
+      lede="Slow down guessing and scraping enough to make them unprofitable, keep capacity for honest taxpayers, and never let an attacker lock a real taxpayer out of their own account."
+    >
+      <section>
+        <h2>Goals</h2>
+        <ul className="points">
+          <li><strong>Make guessing slow.</strong> Credential stuffing works by volume. Limits per IP, per account, and per password take the volume away.</li>
+          <li><strong>Don't become the attack.</strong> A lockout an attacker can trigger is a denial of service against our own taxpayers, so locking is the last step, not the first.</li>
+          <li><strong>Reveal nothing.</strong> A locked account, a wrong password, and an unknown email look the same from outside.</li>
+          <li><strong>Hold at peak.</strong> Limits are sized for filing season and never turned off to keep up. See <Link to="/technical-design/non-functional/availability">Availability &amp; Latency</Link>.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Limits, layer by layer</h2>
+        <div className="table-scroll">
+          <table className="metrics">
+            <thead>
+              <tr><th>Where</th><th>Counted by</th><th>Limit</th><th>When exceeded</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              {RATE_LIMITS.map(([where, by, limit, then, status]) => (
+                <tr key={where}><td>{where}</td><td>{by}</td><td>{limit}</td><td>{then}</td><td>{status === 'demo' ? <Demo /> : <Planned />}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The numbers are starting points, set from last season's per-client traffic so honest use stays well under them,
+          and tuned in load tests before each season. Each can change through configuration, without a deploy.
+        </p>
+      </section>
+
+      <section>
+        <h2>How the limiter works</h2>
+        <ul className="points">
+          <li>
+            <strong>Token buckets in a shared store.</strong> Each key (an IP, an account, a session) has a bucket in Redis,
+            updated atomically, so every replica sees the same count. A bucket allows short bursts, like a page loading
+            several things at once, while capping the sustained rate.
+          </li>
+          <li>
+            <strong>The real client address.</strong> Per-IP limits use the address behind our own proxies, reading{' '}
+            <code>X-Forwarded-For</code> from the right through the trusted ones only, so a client can't pick a fresh
+            address for each attempt. See <Link to="/security/threat-model/attack-surfaces/enumeration">Enumeration &amp; Credential Stuffing</Link>.
+          </li>
+          <li>
+            <strong>If the shared store is down,</strong> each pod falls back to its own in-memory limits at a fraction of
+            the shared limit. Protection gets coarser, but never switches off, and the status page keeps working. That's the
+            trade the availability requirements ask for.
+          </li>
+          <li>
+            <strong>Edge first.</strong> The edge drops floods before they reach us, so the application limits only see
+            traffic that's already been filtered, and attacks don't spend our capacity.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Shared addresses</h2>
+        <p>
+          Campuses, offices, and mobile carriers put thousands of people behind one IP address, and filing deadlines bring
+          them all at once. Per-IP limits alone would block them together. So:
+        </p>
+        <ul className="checks">
+          <li><Planned /> A device that has signed in successfully before carries a signed device cookie, and is counted on its own instead of with its whole network.</li>
+          <li><Planned /> Known carrier and campus ranges get higher per-IP limits, and lean on the per-account and per-password limits instead.</li>
+          <li><Planned /> Past a limit, a shared address gets a challenge before a block, so a person can still get through. See <Link to="/security/abuse-prevention/bot-defense">Bot Defense</Link>.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Lockout without locking people out</h2>
+        <p>
+          A hard lock after five failures stops guessing, but anyone who knows an email can lock its owner out on the
+          busiest day of the year. The design escalates instead:
+        </p>
+        <ol className="timeline">
+          <li><strong>Failures 1–3</strong><span>Nothing visible. The count resets on a successful sign-in, and decays after 24 hours.</span></li>
+          <li><strong>Failures 4–5</strong><span>Each attempt waits a little longer (1, then 2 seconds), and a challenge appears for unrecognized devices.</span></li>
+          <li><strong>After 5</strong><span>Unrecognized devices are locked out for 15 minutes. Devices that signed in before can still sign in, with a second factor. The attacker is stopped; the owner isn't.</span></li>
+          <li><strong>Tell the owner</strong><span>The owner gets a notice that someone tried to sign in, telling them to sign in directly and change their password. It contains no link, so it can't be imitated by a phishing message.</span></li>
+          <li><strong>Unlock</strong><span>Waiting out the 15 minutes, resetting the password, or signing in with a second factor on a recognized device.</span></li>
+        </ol>
+        <p>
+          Through all of it, the response to a failed sign-in is the same message, in the same time, whether the email
+          exists, the password is wrong, or the account is locked.
+        </p>
+      </section>
+
+      <section>
+        <h2>Watching it</h2>
+        <ul className="checks">
+          <li><Demo /> Failed sign-ins are audited with the client address.</li>
+          <li><Planned /> Lockouts and rate-limit hits are recorded too, with the account and key hashed, so investigations can see what was targeted.</li>
+          <li><Planned /> A spike in lockouts, or many accounts failing from few sources, pages on-call as credential stuffing. See <Link to="/security/monitoring">Security Monitoring</Link>.</li>
+          <li><Planned /> Dashboards show 429s by endpoint against last season, so a limit that starts catching honest traffic is spotted and raised.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>The demo today</h2>
+        <ul className="checks">
+          <li><Demo /> 10 sign-in attempts per client IP every 5 minutes, answered with 429 and <code>Retry-After</code>.</li>
+          <li><Demo /> 5 failed attempts lock the account for 15 minutes, from any number of IPs; a successful sign-in resets the count.</li>
+          <li><Demo /> A locked account gets the same message as a wrong password, and unknown emails take the same time, checked against a dummy hash.</li>
+          <li><Planned /> Gaps: the limiter is in memory per pod with fixed windows, so each replica counts separately; only sign-in is limited; the lockout is a hard lock with no device awareness or owner notice; lockouts and rate-limit hits aren't audited.</li>
+        </ul>
+      </section>
+    </Page>
+  )
+}
+
+// [signal, examples, catches, privacy]
+const BOT_SIGNALS = [
+  ['Network', 'IP reputation, data-center and hosting ranges, known proxies and anonymizers', 'Cheap botnets and rented servers', 'Uses the address we already log; no new data'],
+  ['Client fingerprint', 'TLS and HTTP/2 handshake fingerprints, header order, whether the browser environment is real', 'Scripts pretending to be browsers', 'A hash of how the client connects, not who the person is'],
+  ['Behavior', 'Typing rhythm, pointer and touch movement, time to fill a form, the path through the pages', 'Automation that is fast, uniform, or skips steps', 'Summarized into a score in the browser session; raw movements aren\'t kept'],
+  ['Velocity', 'Attempts per account, device, network, and password, over minutes and days', 'Stuffing, spraying, and bulk filing spread thin', 'Counters with short expiries'],
+  ['Device history', 'A signed cookie on devices that signed in successfully before', 'Lets known devices through with less friction', 'A random ID, not a fingerprint; cleared by the user at will'],
+  ['Credential intelligence', 'Passwords known from breaches, checked by a k-anonymity range query', 'Stuffing with leaked lists', 'The password never leaves us; only a short hash prefix is sent'],
+  ['Tripwires', 'Hidden form fields, decoy endpoints, and canary accounts', 'Bots that fill or crawl everything', 'No personal data involved'],
+]
+
+// [level, when, what happens]
+const BOT_RESPONSES = [
+  ['Allow', 'Low risk: most traffic, and every known device', 'Nothing. The taxpayer never sees bot defense.'],
+  ['Watch', 'Slightly unusual', 'Allowed, but tagged so later requests in the session are scored with that in mind.'],
+  ['Slow', 'Suspicious, or a burst', 'Small added delays. Costs a person a second; costs a bot its throughput.'],
+  ['Challenge', 'Likely automated', 'An invisible check first (proof-of-work or device attestation); an interactive, accessible one only if that fails.'],
+  ['Block', 'Clearly automated, or a tripwire hit', 'Refused, with a generic response that doesn\'t say which signal tripped. Repeat sources may be slowed to a crawl instead of refused, which wastes their time.'],
+]
+
+// [flow, what bots try, defense, status]
+const BOT_FLOWS = [
+  ['Sign-in', 'Credential stuffing and password spraying', 'Risk scoring at the edge, the limits in Rate Limiting & Lockout, breached-password checks, and passkeys', 'planned'],
+  ['Account recovery', 'The same, aimed at the weaker door', 'Recovery gets every sign-in protection, plus a notice to the owner and a cooling-off period before changes take effect', 'planned'],
+  ['Sign-up', 'Fake accounts to file from', 'Scoring and limits per device and network, disposable-email checks, and refund details hidden until identity is proofed', 'planned'],
+  ['One-time codes', 'SMS pumping to premium-rate numbers', 'Passkeys and authenticator apps first; send limits per number, prefix, and country; the SMS provider\'s fraud controls', 'planned'],
+  ['Filing a return', 'Templated returns under stolen identities', 'Duplicate screening on bank fingerprints and near-identical figures, held before sending', 'demo'],
+  ['Status reads', 'Fraud rings tracking which filings got paid', 'Sign-in required for everything; unusual read rates per account and device flagged', 'demo'],
+]
+
+function BotDefense() {
+  return (
+    <Page
+      eyebrow="Abuse Prevention"
+      title="Bot Defense"
+      deeper={false}
+      lede="Telling automated attacks from taxpayers, and making the attacks too slow and expensive to pay off, while nearly every real taxpayer never notices anything at all."
+    >
+      <section>
+        <h2>Principles</h2>
+        <ul className="points">
+          <li><strong>Layers, not a wall.</strong> No single signal is reliable. The edge, risk scoring, rate limits, and fraud checks each catch what the others miss.</li>
+          <li><strong>Invisible first.</strong> Signals and scoring cost a taxpayer nothing. Puzzles are the last resort, not the default.</li>
+          <li><strong>Friction in proportion to risk.</strong> A known device signing in sees nothing; a new device from a botnet range sees a challenge.</li>
+          <li><strong>Everyone can get through.</strong> Every challenge has an accessible path. Shutting out people who use assistive technology would fail the people this service is for.</li>
+          <li><strong>On through the peak.</strong> Bot traffic hides in the April rush, so defenses are sized for it and never switched off to keep up.</li>
+        </ul>
+        <p>
+          What bots try against this service is listed in{' '}
+          <Link to="/security/threat-model/attack-surfaces/bots">Bots &amp; Automated Abuse</Link>. This page is how we stop them.
+        </p>
+      </section>
+
+      <section>
+        <h2>The pipeline</h2>
+        <ol className="timeline">
+          <li><strong>Edge filter</strong><span>The CDN and web application firewall drop floods, known-bad networks, and malformed requests before they reach us.</span></li>
+          <li><strong>Risk score</strong><span>Bot management scores each sign-in, sign-up, and recovery request on the signals below, and passes the score to the app.</span></li>
+          <li><strong>Response</strong><span>The score picks a step on the response ladder: allow, watch, slow, challenge, or block.</span></li>
+          <li><strong>App limits</strong><span>Rate limits and lockout catch what scoring misses, counted per IP, per account, and per password. See <Link to="/security/abuse-prevention/rate-limiting">Rate Limiting &amp; Lockout</Link>.</span></li>
+          <li><strong>Business checks</strong><span>Duplicate screening and fraud scoring catch automated filing that looked human all the way in.</span></li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>Signals</h2>
+        <div className="table-scroll">
+          <table className="metrics">
+            <thead>
+              <tr><th>Signal</th><th>Examples</th><th>Catches</th><th>Privacy</th></tr>
+            </thead>
+            <tbody>
+              {BOT_SIGNALS.map(([signal, examples, catches, privacy]) => (
+                <tr key={signal}><td>{signal}</td><td>{examples}</td><td>{catches}</td><td>{privacy}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Signals are used only to tell people from bots: never for marketing, never sold, kept 90 days at most, and named
+          in the privacy notice.
+        </p>
+      </section>
+
+      <section>
+        <h2>The response ladder</h2>
+        <table className="metrics compare">
+          <thead>
+            <tr><th>Step</th><th>When</th><th>What happens</th></tr>
+          </thead>
+          <tbody>
+            {BOT_RESPONSES.map(([step, when, what]) => (
+              <tr key={step}><td>{step}</td><td>{when}</td><td>{what}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Challenges</h2>
+        <ul className="points">
+          <li><strong>Invisible checks first.</strong> A short proof-of-work, or a device attestation token from the browser or operating system, proves a real device without asking the person to do anything.</li>
+          <li><strong>Interactive only if those fail,</strong> and always with an accessible alternative. WCAG 2.2's accessible authentication criterion rules out puzzles that depend on memory or transcription without another way through.</li>
+          <li><strong>Passkeys skip the question.</strong> A passkey sign-in proves a real device and a real person in one step, so the more taxpayers use them, the fewer challenges anyone sees.</li>
+          <li><strong>Proof-of-work under attack.</strong> During a stuffing campaign, sign-in can require a small computation from every new device: a fraction of a second for one person, a real cost for millions of attempts.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>By flow</h2>
+        <div className="table-scroll">
+          <table className="metrics">
+            <thead>
+              <tr><th>Flow</th><th>What bots try</th><th>Defense</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              {BOT_FLOWS.map(([flow, tries, defense, status]) => (
+                <tr key={flow}><td>{flow}</td><td>{tries}</td><td>{defense}</td><td>{status === 'demo' ? <Demo /> : <Planned />}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Tripwires</h2>
+        <ul className="points">
+          <li><strong>Hidden fields.</strong> Form fields people can't see or reach. Anything that fills them is a bot.</li>
+          <li><strong>Decoy endpoints.</strong> Paths no page links to, listed nowhere a person would look. A hit is a crawler or a scanner, and its source is blocked.</li>
+          <li><strong>Canary accounts.</strong> Accounts that exist only to be watched. Any sign-in attempt means their credentials are circulating in a list, which tells us a campaign has started and which list it's using.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Peak season and outages</h2>
+        <ul className="points">
+          <li><strong>Under-attack mode.</strong> A pre-approved switch raises the challenge rate for new devices and turns on proof-of-work at sign-in. It's in the runbook, so on-call can turn it on in minutes without a deploy.</li>
+          <li><strong>If the bot-defense vendor fails,</strong> traffic passes through unscored rather than being blocked, so the status page stays up, and the application's own rate limits and lockout carry the load. That follows the order in <Link to="/technical-design/non-functional/availability">Availability &amp; Latency</Link>.</li>
+          <li><strong>Shared intelligence.</strong> Block lists and indicators are shared with the IRS, the states, and industry groups through the season, so a campaign seen elsewhere is blocked here before it starts.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Measuring the cost to people</h2>
+        <ul className="checks">
+          <li><Planned /> Challenge rate, solve rate, and abandoned sign-ins, compared with last season, so friction that creeps up is noticed.</li>
+          <li><Planned /> The same, broken out for mobile carriers, campuses, and assistive technology, where false positives cluster.</li>
+          <li><Planned /> Support contacts about being blocked, reviewed weekly in season.</li>
+          <li><Planned /> Our own synthetic checks run through the real defenses, allowlisted by credential rather than address, so a defense that blocks real use shows up at once.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>The demo today</h2>
+        <ul className="checks">
+          <li><Demo /> Everything personal is behind sign-in, and responses are marked <code>Cache-Control: no-store</code>.</li>
+          <li><Demo /> Sign-in is rate limited per client and locked per account; request bodies are capped and inputs strictly validated.</li>
+          <li><Demo /> Duplicate screening holds near-identical returns paying into the same bank fingerprint before they're sent.</li>
+          <li><Planned /> Not in the demo: an edge, bot management, risk scoring, challenges, tripwires, and canary accounts.</li>
+        </ul>
       </section>
     </Page>
   )
@@ -1003,7 +1736,7 @@ function AbusePrevention() {
       <section>
         <h2>Bots and automation</h2>
         <ul className="checks">
-          <li><Demo /> Request bodies capped at 32 KB, and strict input validation, including routing number checksums.</li>
+          <li><Demo /> Request bodies capped at 32 KB by the portal and 16 KB by the API, and strict input validation, including routing number checksums.</li>
           <li><Planned /> A web application firewall and bot management at the edge, using device and behavior signals.</li>
           <li><Planned /> Credential-stuffing detection: many accounts tried from one source, or one password tried across many accounts.</li>
           <li><Planned /> Challenges only when risk is high, so most taxpayers never see one.</li>
@@ -1232,12 +1965,17 @@ function Compliance() {
 export const securityPages = {
   security: Overview,
   'threat-model': ThreatModel,
+  'threat-actors': ThreatActors,
   'identity-access': IdentityAccess,
   'taxpayer-verification': TaxpayerIdentity,
   'support-agents': SupportAgents,
   preparers: Preparers,
   'service-auth': ServiceAuth,
   'data-protection': DataProtection,
+  encryption: Encryption,
+  minimization: Minimization,
+  'rate-limiting': RateLimiting,
+  'bot-defense': BotDefense,
   'abuse-prevention': AbusePrevention,
   'security-monitoring': SecurityMonitoring,
   'audit-response': AuditResponse,

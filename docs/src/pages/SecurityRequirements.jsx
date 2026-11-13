@@ -9,6 +9,7 @@ const GROUPS = [
     rows: [
       ['A taxpayer sees only their own returns', 'Every query is scoped to the signed-in user\'s own returns', 'demo', '/security/identity-access'],
       ['Sessions end on their own', 'A session expires after 30 minutes without use, and can be revoked server-side in one step', 'demo', '/security/identity-access'],
+      ['Taxpayers decide when support can look', 'Support sees a return only during a 5-minute window its taxpayer grants for that return; either side can end it early; grants, revocations, and views are audited, and agents see each taxpayer\'s recent grants and who ended them', 'demo', '/security/identity-access/agents'],
       ['Staff need a reason to look', 'Support staff open a record only through a case, and every view is recorded against it', 'planned', '/security/identity-access/agents'],
       ['Strong sign-in for staff', 'Staff sign in through company SSO with phishing-resistant MFA (hardware keys or passkeys)', 'planned', '/security/identity-access/agents'],
       ['MFA for taxpayers', 'Offered to every taxpayer, and required on a new device or before sensitive changes', 'planned', '/security/identity-access/taxpayer'],

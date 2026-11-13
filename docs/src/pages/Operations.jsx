@@ -26,7 +26,7 @@ function MonitoringAlerting() {
           </thead>
           <tbody>
             <tr><td>Status reads that succeed</td><td>99.95%, about 22 minutes of failures a month</td><td>The page is worthless if it's down when everyone checks.</td></tr>
-            <tr><td>Status read latency</td><td>p99 under 300 ms at the API</td><td>Slow pages get refreshed, which doubles the load.</td></tr>
+            <tr><td>Status read latency</td><td>p99 under 300 ms at the API</td><td>Slow pages get refreshed, which doubles the load. Availability comes first; see <Link to="/technical-design/non-functional/availability">Availability &amp; Latency</Link>.</td></tr>
             <tr><td>In-flight returns checked on time</td><td>99% checked within an hour of being due</td><td>Stale statuses create the support calls we exist to prevent.</td></tr>
             <tr><td>Returns transmitted after filing</td><td>99% within 15 minutes</td><td>Delays push the whole refund later.</td></tr>
             <tr><td>Status matches the agency</td><td>Under 0.01% mismatches in a daily sample</td><td>A wrong answer is worse than a slightly old one.</td></tr>
@@ -75,7 +75,8 @@ function MonitoringAlerting() {
           </thead>
           <tbody>
             <tr><td>Status read errors</td><td>2% of the monthly error budget spent in an hour, or 5% in six hours</td><td>Page</td></tr>
-            <tr><td>Status read latency</td><td>p99 over 300 ms for 10 minutes</td><td>Page</td></tr>
+            <tr><td>Status read latency</td><td>p99 over 1 second for 10 minutes, where slow is about to become unavailable. Over 300 ms for 30 minutes opens a ticket</td><td>Page, or ticket</td></tr>
+            <tr><td>Degraded responses</td><td>Over 1% of status reads answered from a fallback for 15 minutes</td><td>Page</td></tr>
             <tr><td>Synthetic check failing</td><td>Failing from two or more regions</td><td>Page</td></tr>
             <tr><td>Returns overdue for a check</td><td>Over 1% of in-flight returns for 30 minutes</td><td>Page in season, ticket off season</td></tr>
             <tr><td>Filing backlog</td><td>Oldest unfiled return older than 15 minutes</td><td>Page</td></tr>

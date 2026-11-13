@@ -1016,6 +1016,8 @@ code {
 .fx-reasons { list-style: none; margin: 0 0 14px; padding: 0; }
 .fx-reasons li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .fx-reasons strong { color: var(--warn); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fx-reasons strong.none { color: var(--muted); font-weight: 500; }
+.fx-field input[type='range'] { width: 100%; accent-color: var(--accent); }
 .fx-vector { display: flex; flex-wrap: wrap; gap: 6px; }
 .fx-vector code { font-size: 12px; padding: 2px 6px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); }
 .fx figcaption { margin-top: 8px; color: var(--muted); font-size: 14px; }
@@ -1035,3 +1037,26 @@ code {
 .wf-row.error.on .wf-bar { background: var(--danger); }
 .wf-ms { font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
 .wf-note { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+
+/* Demo Users */
+.demo-users td { vertical-align: top; }
+.metrics.demo-users td:first-child { font-weight: 400; }
+.metrics.demo-users td:last-child { color: var(--text); }
+.demo-users .role-tag { margin-left: 8px; }
+.demo-users .sub { display: block; margin-top: 2px; color: var(--muted); font-size: 14px; }
+.demo-users .filed { display: block; }
+.demo-users .filed + .filed { margin-top: 2px; }
+
+/* Threat actor profiles */
+.actor { padding: 16px 0; border-bottom: 1px solid var(--border); }
+.actor:last-child { border-bottom: 0; }
+.actor h3 { margin-bottom: 10px; font-size: 1.05rem; }
+.actor-facts { display: grid; grid-template-columns: 110px 1fr; gap: 6px 16px; margin: 0; font-size: 15px; }
+.actor-facts dt { color: var(--muted); font-size: 12.5px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding-top: 3px; }
+.actor-facts dd { margin: 0; }
+.actor-facts ul { margin: 0; padding-left: 18px; }
+.actor-facts li + li { margin-top: 3px; }
+@media (max-width: 600px) {
+  .actor-facts { grid-template-columns: 1fr; gap: 2px; }
+  .actor-facts dd { margin-bottom: 8px; }
+}
