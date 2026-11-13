@@ -23,8 +23,13 @@ const (
 	caMentalHealthThreshold = 1_000_000
 )
 
-func California540(in Input) Result {
-	var r Result
+// California540 is the resident return.
+func California540(in Input) Result { return caReturn(in, true) }
+
+// California540NR is the part-year and nonresident return.
+func California540NR(in Input) Result { return caReturn(in, false) }
+
+func caReturn(in Input, resident bool) Result {
 	agi := in.Wages + in.Interest
 	deduction := caStandardDeduction[in.FilingStatus]
 	deductionLabel := "CA standard deduction"
@@ -40,8 +45,8 @@ func California540(in Input) Result {
 	}
 	totalTax := tax - exemptions + mhs
 
-	r.Lines = []Line{
-		{"CA wages (W-2 box 16)", in.Wages},
+	lines := []Line{
+		{"Wages (all sources)", in.Wages},
 		{"Taxable interest", in.Interest},
 		{"CA adjusted gross income", agi},
 		{deductionLabel, deduction},
@@ -50,8 +55,13 @@ func California540(in Input) Result {
 		{"Exemption credits", exemptions},
 		{"Mental health services tax", mhs},
 		{"Total tax", totalTax},
-		{"CA income tax withheld (W-2 box 17)", in.Withholding},
 	}
-	settle(&r, totalTax, in.Withholding)
-	return r
+	if resident {
+		lines[0].Label = "CA wages (W-2 box 16)"
+	} else {
+		lines[2].Label = "Adjusted gross income (all sources)"
+		lines[4].Label = "Taxable income (all sources)"
+		lines[len(lines)-1].Label = "Tax as if a full resident"
+	}
+	return stateForm("CA", lines, totalTax, in, resident)
 }

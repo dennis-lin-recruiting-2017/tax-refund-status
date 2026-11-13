@@ -60,3 +60,40 @@ func TestNewYorkDependentExemption(t *testing.T) {
 		t.Fatalf("dependent exemption saved %d, want 110", a.Tax-b.Tax)
 	}
 }
+
+func TestNewYorkNonresidentTaxesOnlyItsShare(t *testing.T) {
+	// The tax a full resident would owe on 72,000 is 3,355 (above). A quarter of the income is from
+	// New York, so New York charges a quarter of it.
+	r := NewYorkIT203(Input{FilingStatus: Single, Wages: 72000, SourceIncome: 18000, Withholding: 900})
+	if r.Tax != 839 || r.Refund != 61 || r.SourceIncome != 18000 {
+		t.Fatalf("got tax=%d refund=%d source=%d", r.Tax, r.Refund, r.SourceIncome)
+	}
+}
+
+func TestNonresidentShareIsCapped(t *testing.T) {
+	full := California540(Input{FilingStatus: Single, Wages: 72000})
+	r := California540NR(Input{FilingStatus: Single, Wages: 72000, SourceIncome: 500000})
+	if r.Tax != full.Tax || r.SourceIncome != 72000 {
+		t.Fatalf("source income above total income: tax=%d (resident %d) source=%d", r.Tax, full.Tax, r.SourceIncome)
+	}
+	if r := California540NR(Input{FilingStatus: Single, Wages: 72000}); r.Tax != 0 {
+		t.Fatalf("no California income should mean no California tax, got %d", r.Tax)
+	}
+}
+
+func TestResidentCreditForTaxPaidToOtherStates(t *testing.T) {
+	// California tax on 72,000 is 2,628 (above). New York taxed 18,000 of it, a quarter, so the
+	// credit is New York's tax, limited to California's tax on that quarter: 657.
+	in := Input{FilingStatus: Single, Wages: 72000, OtherStateIncome: 18000}
+	in.OtherStateTax = 839
+	if r := California540(in); r.Tax != 2628-657 {
+		t.Fatalf("limited credit: tax=%d, want %d", r.Tax, 2628-657)
+	}
+	in.OtherStateTax = 400
+	if r := California540(in); r.Tax != 2628-400 {
+		t.Fatalf("full credit: tax=%d, want %d", r.Tax, 2628-400)
+	}
+	if r := California540(Input{FilingStatus: Single, Wages: 72000}); len(r.Lines) != 11 {
+		t.Fatalf("no credit lines without other-state tax, got %d lines", len(r.Lines))
+	}
+}

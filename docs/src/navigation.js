@@ -9,41 +9,36 @@ export const navTree = [
     title: 'Technical Design',
     path: '/technical-design',
     children: [
+      { id: 'assumptions', title: 'Assumptions', path: '/technical-design/assumptions' },
       {
-        id: 'requirements',
-        title: 'Requirements',
-        path: '/technical-design/requirements',
+        id: 'functional',
+        title: 'Functional',
+        path: '/technical-design/functional',
         children: [
           {
-            id: 'functional',
-            title: 'Functional',
-            path: '/technical-design/requirements/functional',
+            id: 'status-lookup',
+            title: 'Refund Status Lookup',
+            path: '/technical-design/functional/status-lookup',
+            summary: 'Seeing where a refund is, when it should arrive, and what to do.',
             children: [
-              {
-                id: 'status-lookup',
-                title: 'Refund Status Lookup',
-                path: '/technical-design/requirements/functional/status-lookup',
-                summary: 'Seeing where a refund is, when it should arrive, and what to do.',
-                children: [
-                  { id: 'identity', title: 'Identity Verification', path: '/technical-design/requirements/functional/status-lookup/identity', summary: 'Proving who someone is before showing anything.' },
-                  { id: 'status-states', title: 'Status States', path: '/technical-design/requirements/functional/status-lookup/states', summary: 'Every state a return can be in, and how it moves between them.' },
-                ],
-              },
-              { id: 'notifications', title: 'Notifications', path: '/technical-design/requirements/functional/notifications', summary: 'Telling taxpayers when something changes, without giving phishers a template.' },
+              { id: 'identity', title: 'Identity Verification', path: '/technical-design/functional/status-lookup/identity', summary: 'Proving who someone is before showing anything.' },
+              { id: 'status-states', title: 'Status States', path: '/technical-design/functional/status-lookup/states', summary: 'Every state a return can be in, and how it moves between them.' },
             ],
           },
-          {
-            id: 'non-functional',
-            title: 'Non-Functional',
-            path: '/technical-design/requirements/non-functional',
-            children: [
-              { id: 'availability', title: 'Availability & Latency', path: '/technical-design/requirements/non-functional/availability' },
-              { id: 'capacity', title: 'Capacity Estimates', path: '/technical-design/requirements/non-functional/capacity' },
-              { id: 'security-requirements', title: 'Security', path: '/technical-design/requirements/non-functional/security' },
-            ],
-          },
+          { id: 'notifications', title: 'Notifications', path: '/technical-design/functional/notifications', summary: 'Telling taxpayers when something changes, without giving phishers a template.' },
         ],
       },
+      {
+        id: 'non-functional',
+        title: 'Non-Functional',
+        path: '/technical-design/non-functional',
+        children: [
+          { id: 'availability', title: 'Availability & Latency', path: '/technical-design/non-functional/availability' },
+          { id: 'capacity', title: 'Capacity Estimates', path: '/technical-design/non-functional/capacity' },
+          { id: 'security-requirements', title: 'Security', path: '/technical-design/non-functional/security' },
+        ],
+      },
+      { id: 'roadmap', title: 'Roadmap', path: '/technical-design/roadmap' },
     ],
   },
   {

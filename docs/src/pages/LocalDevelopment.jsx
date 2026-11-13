@@ -137,8 +137,8 @@ function Run() {
           your terminal. Press <strong>Ctrl+C</strong> to stop both. Open{' '}
           <a href="http://localhost:5180">http://localhost:5180</a> and sign in as <code>tester00@test.com</code>–
           <code>tester09@test.com</code> (federal and California), <code>tester10@test.com</code>–
-          <code>tester19@test.com</code> (federal and New York), or <code>admin@test.com</code>. The password for all of
-          them is <code>test</code>.
+          <code>tester19@test.com</code> (federal and New York), or <code>admin@test.com</code>. tester08, tester09, and
+          tester18 file in both states; tester20 to tester22 live or work in states with no income tax. The password for all of them is <code>test</code>.
         </p>
         <table className="metrics">
           <thead>
@@ -406,8 +406,11 @@ function Changes() {
         <dt>Add a demo user</dt>
         <dd>
           Add an entry to <code>backend/internal/store/demo-users.json</code> and restart the backend. Set{' '}
-          <code>"role": "admin"</code> for another admin. Demo accounts are updated to match the file, including
-          passwords, every time the backend starts.
+          <code>"role": "admin"</code> for another admin. For more than one state, give it{' '}
+          <code>"states"</code>, each with a <code>residency</code> of <code>resident</code>, <code>part_year</code>,
+          or <code>nonresident</code> (at most one resident), and a draft for each state's form. States with no income tax
+          (FL, TX, WA) get no form or draft; <code>"states": []</code> means federal only. Demo accounts are
+          updated to match the file, including passwords, every time the backend starts.
         </dd>
         <dt>Change the tax math</dt>
         <dd>

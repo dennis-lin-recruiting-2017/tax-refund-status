@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -21,14 +22,20 @@ import (
 
 type formSpec struct {
 	jurisdiction string
+	resident     bool // state forms: for full residents, rather than part-year residents and nonresidents
 	compute      func(tax.Input) tax.Result
 }
 
 var forms = map[string]formSpec{
-	"1040":   {"federal", tax.Federal1040},
-	"540":    {"CA", tax.California540},
-	"IT-201": {"NY", tax.NewYorkIT201},
+	"1040":   {"federal", false, tax.Federal1040},
+	"540":    {"CA", true, tax.California540},
+	"540NR":  {"CA", false, tax.California540NR},
+	"IT-201": {"NY", true, tax.NewYorkIT201},
+	"IT-203": {"NY", false, tax.NewYorkIT203},
 }
+
+// allocated reports whether the form taxes only the state's share of income.
+func (f formSpec) allocated() bool { return f.jurisdiction != "federal" && !f.resident }
 
 type returnRequest struct {
 	FilingStatus       tax.FilingStatus `json:"filingStatus"`
@@ -39,11 +46,12 @@ type returnRequest struct {
 	Dependents         int64            `json:"dependents"`
 	RoutingNumber      string           `json:"routingNumber"`
 	AccountNumber      string           `json:"accountNumber"`
+	StateIncome        int64            `json:"stateIncome"` // part-year and nonresident forms only
 }
 
 const maxAmount = 100_000_000
 
-func (req returnRequest) validate(requireBank bool) map[string]string {
+func (req returnRequest) validate(spec formSpec, requireBank bool) map[string]string {
 	errs := map[string]string{}
 	if !req.FilingStatus.Valid() {
 		errs["filingStatus"] = "Choose a filing status."
@@ -62,6 +70,13 @@ func (req returnRequest) validate(requireBank bool) map[string]string {
 	if req.Withholding > req.Wages && req.Wages > 0 {
 		errs["withholding"] = "Withholding can't be more than wages."
 	}
+	if spec.allocated() {
+		if req.StateIncome <= 0 || req.StateIncome > req.Wages+req.Interest {
+			errs["stateIncome"] = "Enter the income you earned in this state, up to your total wages and interest."
+		}
+	} else if req.StateIncome != 0 {
+		errs["stateIncome"] = "Only part-year and nonresident returns ask for income from this state."
+	}
 	if requireBank {
 		if !validRouting(req.RoutingNumber) {
 			errs["routingNumber"] = "Enter a valid 9-digit routing number."
@@ -77,6 +92,7 @@ func (req returnRequest) input() tax.Input {
 	return tax.Input{
 		FilingStatus: req.FilingStatus, Wages: req.Wages, Withholding: req.Withholding,
 		Interest: req.Interest, ItemizedDeductions: req.ItemizedDeductions, Dependents: req.Dependents,
+		SourceIncome: req.StateIncome,
 	}
 }
 
@@ -106,19 +122,86 @@ func (s *Server) parseForm(w http.ResponseWriter, r *http.Request, requireBank b
 		writeError(w, http.StatusNotFound, "Unknown form.")
 		return spec, form, returnRequest{}, false
 	}
-	if user := auth.UserFrom(r.Context()); spec.jurisdiction != "federal" && spec.jurisdiction != user.State {
-		writeError(w, http.StatusUnprocessableEntity, fmt.Sprintf("You're set up to file a %s state return, not this form.", user.State))
-		return spec, form, returnRequest{}, false
+	if spec.jurisdiction != "federal" {
+		filing, ok := auth.UserFrom(r.Context()).Filing(spec.jurisdiction)
+		if !ok {
+			writeError(w, http.StatusUnprocessableEntity, fmt.Sprintf("You're not set up to file a %s return.", spec.jurisdiction))
+			return spec, form, returnRequest{}, false
+		}
+		if want := stateForm(filing); want != form {
+			writeError(w, http.StatusUnprocessableEntity, fmt.Sprintf("As a %s of %s, you file Form %s, not this form.",
+				residencyLabel(filing.Residency), spec.jurisdiction, want))
+			return spec, form, returnRequest{}, false
+		}
 	}
 	var req returnRequest
 	if !decode(w, r, &req) {
 		return spec, form, req, false
 	}
-	if errs := req.validate(requireBank); len(errs) > 0 {
+	if errs := req.validate(spec, requireBank); len(errs) > 0 {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "Check the highlighted fields.", "fields": errs})
 		return spec, form, req, false
 	}
 	return spec, form, req, true
+}
+
+// stateForm is the form a taxpayer files for a state, given their residency there. A state with
+// no income tax has none.
+func stateForm(f auth.StateFiling) string {
+	resident := f.Residency == "resident"
+	for id, spec := range forms {
+		if spec.jurisdiction == f.State && spec.resident == resident {
+			return id
+		}
+	}
+	return ""
+}
+
+func residencyLabel(r string) string {
+	switch r {
+	case "part_year":
+		return "part-year resident"
+	case "nonresident":
+		return "nonresident"
+	}
+	return "resident"
+}
+
+// otherStates fills in what the resident state's credit needs: the tax charged, and the income
+// taxed, by the taxpayer's part-year and nonresident returns in other states. It also names
+// those states the taxpayer hasn't filed in yet, because the credit can't count them.
+func (s *Server) otherStates(ctx context.Context, user auth.User, spec formSpec, in *tax.Input) ([]string, error) {
+	if !spec.resident {
+		return nil, nil
+	}
+	filed := map[string]bool{}
+	rows, err := s.pool.Query(ctx, `SELECT jurisdiction, (computed->>'tax')::bigint, COALESCE((computed->>'sourceIncome')::bigint, 0)
+		FROM tax_returns WHERE user_id = $1 AND tax_year = $2 AND jurisdiction NOT IN ('federal', $3)`,
+		user.ID, tax.TaxYear, spec.jurisdiction)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var state string
+		var otherTax, income int64
+		if err := rows.Scan(&state, &otherTax, &income); err != nil {
+			return nil, err
+		}
+		filed[state] = true
+		in.OtherStateTax += otherTax
+		in.OtherStateIncome += income
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	var missing []string
+	for _, f := range user.States {
+		if f.IncomeTax && f.State != spec.jurisdiction && f.Residency != "resident" && !filed[f.State] {
+			missing = append(missing, f.State)
+		}
+	}
+	return missing, nil
 }
 
 func (s *Server) handleEstimate(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +209,12 @@ func (s *Server) handleEstimate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, spec.compute(req.input()))
+	in := req.input()
+	if _, err := s.otherStates(r.Context(), auth.UserFrom(r.Context()), spec, &in); err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, spec.compute(in))
 }
 
 func (s *Server) handleSubmit(w http.ResponseWriter, r *http.Request) {
@@ -136,6 +224,16 @@ func (s *Server) handleSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	user := auth.UserFrom(r.Context())
 	in := req.input()
+	missing, err := s.otherStates(r.Context(), user, spec, &in)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	if len(missing) > 0 {
+		writeError(w, http.StatusConflict, fmt.Sprintf(
+			"File your %s return first. This return claims a credit for the tax charged there.", strings.Join(missing, " and ")))
+		return
+	}
 	result := spec.compute(in)
 
 	mac := hmac.New(sha256.New, s.cfg.BankHMACKey)
@@ -148,9 +246,15 @@ func (s *Server) handleSubmit(w http.ResponseWriter, r *http.Request) {
 		"filingStatus": in.FilingStatus, "wages": in.Wages, "withholding": in.Withholding,
 		"interest": in.Interest, "itemizedDeductions": in.ItemizedDeductions, "dependents": in.Dependents,
 	}
+	if spec.allocated() {
+		storedInput["stateIncome"] = in.SourceIncome
+	}
+	if in.OtherStateTax > 0 {
+		storedInput["otherStateTax"], storedInput["otherStateIncome"] = in.OtherStateTax, in.OtherStateIncome
+	}
 
 	var id string
-	err := pgx.BeginFunc(r.Context(), s.pool, func(tx pgx.Tx) error {
+	err = pgx.BeginFunc(r.Context(), s.pool, func(tx pgx.Tx) error {
 		err := tx.QueryRow(r.Context(), `INSERT INTO tax_returns
 			(user_id, jurisdiction, form, tax_year, filing_status, input, computed,
 			 refund_cents, owed_cents, bank_last4, bank_fingerprint, features)
@@ -269,7 +373,7 @@ func (s *Server) queryReturns(ctx context.Context, where string, args ...any) ([
 			COALESCE((SELECT json_agg(json_build_object('status', e.status, 'note', e.note, 'createdAt', e.created_at)
 			          ORDER BY e.created_at, e.id)
 			          FROM return_events e WHERE e.return_id = r.id), '[]')
-		FROM tax_returns r WHERE `+where+` ORDER BY r.form = '540', r.submitted_at`, args...)
+		FROM tax_returns r WHERE `+where+` ORDER BY r.jurisdiction <> 'federal', r.submitted_at`, args...)
 	if err != nil {
 		return nil, err
 	}

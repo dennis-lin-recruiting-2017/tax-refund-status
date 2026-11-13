@@ -168,14 +168,18 @@ function Workflow() {
         <li>
           <strong>Sign in</strong> with the password <code>test</code> as <code>tester00@test.com</code> through{' '}
           <code>tester09@test.com</code> (federal and California) or <code>tester10@test.com</code> through{' '}
-          <code>tester19@test.com</code> (federal and New York). Each tester's forms are pre-filled and ready to submit.
+          <code>tester19@test.com</code> (federal and New York). tester08, tester09, and tester18 file in both states;
+          tester20 to tester22 live or work in states with no income tax.
+          Each tester's forms are pre-filled and ready to submit.
         </li>
         <li>
           <strong>File Form 1040.</strong> It opens pre-filled with the tester's W-2 and bank account. Click{' '}
           <strong>Review</strong> to see the server's calculation, then <strong>Submit return</strong>.
         </li>
         <li>
-          <strong>File the state return</strong> (CA Form 540 or NY Form IT-201) the same way.
+          <strong>File each state return</strong> the same way: CA Form 540 or NY Form IT-201 for a resident, CA 540NR or
+          NY IT-203 for a part-year resident or nonresident. File those first: the resident return claims a credit for
+          the tax they charge.
         </li>
         <li>
           <strong>Watch the status.</strong> Within seconds the return is sent to the agency (<em>Processing</em>). After

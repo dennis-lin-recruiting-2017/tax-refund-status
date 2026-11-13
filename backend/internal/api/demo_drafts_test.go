@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"taxrefund/internal/auth"
 	"taxrefund/internal/store"
 )
 
@@ -12,8 +13,8 @@ import (
 var owesTax = map[string]bool{"tester05@test.com": true, "tester15@test.com": true}
 
 type seeded struct {
-	email, jurisdiction string
-	req                 returnRequest
+	email, form string
+	req         returnRequest
 }
 
 func loadDrafts(t *testing.T) []seeded {
@@ -29,8 +30,8 @@ func loadDrafts(t *testing.T) []seeded {
 			if !ok {
 				t.Fatalf("%s: unknown form %q", u.Email, form)
 			}
-			if spec.jurisdiction != "federal" && spec.jurisdiction != u.State {
-				t.Errorf("%s: has a %s draft but files in %s", u.Email, form, u.State)
+			if spec.jurisdiction != "federal" && !filesForm(u, form) {
+				t.Errorf("%s: has a %s draft but doesn't file that form (files %v)", u.Email, form, u.Filings())
 			}
 			var req returnRequest
 			dec := json.NewDecoder(strings.NewReader(string(raw)))
@@ -38,37 +39,46 @@ func loadDrafts(t *testing.T) []seeded {
 			if err := dec.Decode(&req); err != nil {
 				t.Fatalf("%s %s: %v", u.Email, form, err)
 			}
-			out = append(out, seeded{u.Email, spec.jurisdiction, req})
+			out = append(out, seeded{u.Email, form, req})
+		}
+		want := 1
+		for _, f := range u.Filings() {
+			if stateForm(auth.StateFiling{State: f.State, Residency: f.Residency}) != "" {
+				want++
+			}
+		}
+		if u.Role != "admin" && len(u.Drafts) != want {
+			t.Errorf("%s: %d drafts; want the 1040 plus one per state with an income tax (%v)", u.Email, len(u.Drafts), u.Filings())
 		}
 	}
 	return out
 }
 
-func TestDemoDraftsAreSubmittable(t *testing.T) {
-	drafts := loadDrafts(t)
-	if len(drafts) != 40 {
-		t.Fatalf("want 40 pre-filled returns (20 testers x 2), got %d", len(drafts))
-	}
-	for _, d := range drafts {
-		if errs := d.req.validate(true); len(errs) > 0 {
-			t.Errorf("%s %s: invalid draft: %v", d.email, d.jurisdiction, errs)
-			continue
+func filesForm(u store.DemoUser, form string) bool {
+	for _, f := range u.Filings() {
+		if stateForm(auth.StateFiling{State: f.State, Residency: f.Residency}) == form {
+			return true
 		}
-		var spec formSpec
-		for _, f := range forms {
-			if f.jurisdiction == d.jurisdiction {
-				spec = f
-			}
+	}
+	return false
+}
+
+func TestDemoDraftsAreSubmittable(t *testing.T) {
+	for _, d := range loadDrafts(t) {
+		spec := forms[d.form]
+		if errs := d.req.validate(spec, true); len(errs) > 0 {
+			t.Errorf("%s %s: invalid draft: %v", d.email, d.form, errs)
+			continue
 		}
 		r := spec.compute(d.req.input())
 		if r.Tax <= 0 {
-			t.Errorf("%s %s: tax is %d; a realistic filer owes some tax", d.email, d.jurisdiction, r.Tax)
+			t.Errorf("%s %s: tax is %d; a realistic filer owes some tax", d.email, d.form, r.Tax)
 		}
 		switch {
 		case owesTax[d.email] && r.Owed == 0:
-			t.Errorf("%s %s: should owe tax, got refund %d", d.email, d.jurisdiction, r.Refund)
+			t.Errorf("%s %s: should owe tax, got refund %d", d.email, d.form, r.Refund)
 		case !owesTax[d.email] && r.Refund < 150:
-			t.Errorf("%s %s: refund %d is below $150", d.email, d.jurisdiction, r.Refund)
+			t.Errorf("%s %s: refund %d is below $150", d.email, d.form, r.Refund)
 		}
 	}
 }

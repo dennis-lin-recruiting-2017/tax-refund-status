@@ -21,11 +21,11 @@ import (
 // change the normal way: the next batch run reads the agency's new status.
 
 type taxpayer struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Email      string `json:"email"`
-	TaxIDLast4 string `json:"taxIdLast4"`
-	State      string `json:"state"`
+	ID         string             `json:"id"`
+	Name       string             `json:"name"`
+	Email      string             `json:"email"`
+	TaxIDLast4 string             `json:"taxIdLast4"`
+	States     []auth.StateFiling `json:"states"`
 }
 
 type liveStatus struct {
@@ -72,7 +72,7 @@ func (s *Server) adminList(w http.ResponseWriter, r *http.Request) {
 // loadAdminReturns returns matching returns, newest first, with taxpayer details and each
 // transmitted return's live status at its agency.
 func (s *Server) loadAdminReturns(ctx context.Context, q, id string) ([]adminReturn, error) {
-	rows, err := s.pool.Query(ctx, `SELECT r.id, u.id, u.full_name, u.email, u.tax_id_last4, u.state, r.agency_submission_id,
+	rows, err := s.pool.Query(ctx, `SELECT r.id, u.id, u.full_name, u.email, u.tax_id_last4, `+auth.StatesSQL+`, r.agency_submission_id,
 			r.identity_verified_at IS NOT NULL, r.status = 'action_needed' AND r.agency_submission_id IS NULL
 		FROM tax_returns r JOIN users u ON u.id = r.user_id
 		WHERE ($1 = '' OR r.id::text = $1)
@@ -84,7 +84,7 @@ func (s *Server) loadAdminReturns(ctx context.Context, q, id string) ([]adminRet
 	}
 	list, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (adminReturn, error) {
 		var a adminReturn
-		return a, row.Scan(&a.ID, &a.Taxpayer.ID, &a.Taxpayer.Name, &a.Taxpayer.Email, &a.Taxpayer.TaxIDLast4, &a.Taxpayer.State, &a.SubmissionID,
+		return a, row.Scan(&a.ID, &a.Taxpayer.ID, &a.Taxpayer.Name, &a.Taxpayer.Email, &a.Taxpayer.TaxIDLast4, &a.Taxpayer.States, &a.SubmissionID,
 			&a.IdentityVerified, &a.Held)
 	})
 	if err != nil || len(list) == 0 {

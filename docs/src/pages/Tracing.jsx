@@ -148,7 +148,7 @@ FROM batch_runs ORDER BY id DESC LIMIT 10;`}</CodeBlock>
           <li>
             <strong>Tail sampling.</strong> Keep every trace with an error or high latency and every batch run, plus a few
             percent of ordinary requests. Keeping everything at peak would mean hundreds of millions of traces (see{' '}
-            <Link to="/technical-design/requirements/non-functional/capacity">Capacity Estimates</Link>).
+            <Link to="/technical-design/non-functional/capacity">Capacity Estimates</Link>).
           </li>
           <li>
             <strong>Durable storage.</strong> Jaeger backed by OpenSearch or Cassandra with a retention period, instead of

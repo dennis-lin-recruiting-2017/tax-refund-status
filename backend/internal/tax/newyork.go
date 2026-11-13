@@ -17,8 +17,13 @@ var nyStandardDeduction = map[FilingStatus]int64{
 
 const nyDependentExemption = 1000
 
-func NewYorkIT201(in Input) Result {
-	var r Result
+// NewYorkIT201 is the resident return.
+func NewYorkIT201(in Input) Result { return nyReturn(in, true) }
+
+// NewYorkIT203 is the part-year and nonresident return.
+func NewYorkIT203(in Input) Result { return nyReturn(in, false) }
+
+func nyReturn(in Input, resident bool) Result {
 	agi := in.Wages + in.Interest
 	deduction := nyStandardDeduction[in.FilingStatus]
 	deductionLabel := "NY standard deduction"
@@ -29,16 +34,21 @@ func NewYorkIT201(in Input) Result {
 	taxable := max(0, agi-deduction-exemptions)
 	tax := progressive(taxable, nyBrackets[in.FilingStatus])
 
-	r.Lines = []Line{
-		{"NY wages (W-2 box 16)", in.Wages},
+	lines := []Line{
+		{"Wages (all sources)", in.Wages},
 		{"Taxable interest", in.Interest},
 		{"NY adjusted gross income", agi},
 		{deductionLabel, deduction},
 		{"Dependent exemptions", exemptions},
 		{"NY taxable income", taxable},
 		{"Total tax", tax},
-		{"NY income tax withheld (W-2 box 17)", in.Withholding},
 	}
-	settle(&r, tax, in.Withholding)
-	return r
+	if resident {
+		lines[0].Label = "NY wages (W-2 box 16)"
+	} else {
+		lines[2].Label = "Adjusted gross income (all sources)"
+		lines[5].Label = "Taxable income (all sources)"
+		lines[len(lines)-1].Label = "Tax as if a full resident"
+	}
+	return stateForm("NY", lines, tax, in, resident)
 }

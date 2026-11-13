@@ -7,6 +7,8 @@ import Placeholder from './pages/Placeholder.jsx'
 import { securityPages } from './pages/Security.jsx'
 import Demo from './pages/Demo.jsx'
 import Capacity from './pages/Capacity.jsx'
+import Assumptions from './pages/Assumptions.jsx'
+import Roadmap from './pages/Roadmap.jsx'
 import ApiGateway from './pages/ApiGateway.jsx'
 import { functionalPages } from './pages/FunctionalRequirements.jsx'
 import SecurityRequirements from './pages/SecurityRequirements.jsx'
@@ -27,6 +29,8 @@ const pages = {
   ...securityPages,
   demo: Demo,
   capacity: Capacity,
+  assumptions: Assumptions,
+  roadmap: Roadmap,
   gateway: ApiGateway,
   'security-requirements': SecurityRequirements,
   tracing: Tracing,

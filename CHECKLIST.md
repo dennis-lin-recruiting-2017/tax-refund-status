@@ -59,6 +59,9 @@ Architecture:
 - [x] API Gateway: what the gateway does, the filing flow, and the decision record for queuing submissions per agency in Postgres (options considered, mechanisms, settings, when to revisit).
 - [x] Demo: per-agency submission queues. A token bucket per agency shared by all processor replicas (`SUBMIT_RPS`), per-return backoff with full jitter, and a circuit breaker per agency (migration 008). Tested with two replicas and one agency down.
 - [ ] Demo gaps from API Gateway: no alert yet on queue age or an open breaker (needs metrics); repeatedly rejected returns retry forever instead of moving to a review queue.
+- [x] Demo: multi-state returns. A taxpayer files in several states (`user_states`, at most one full resident), on the form their residency calls for: CA 540/540NR, NY IT-201/IT-203. Part-year and nonresident returns tax that state's share of income; the resident return claims a limited credit for tax paid to the other states and is filed after them (migration 009). tester08, tester09, and tester18 file in both states.
+- [x] Demo: states with no income tax. A `states` reference table (migration 010) records Florida, Texas, and Washington with no income tax: they get no form, the dashboard and admin console say why, and `"states": []` in the seed file means federal only. tester20 (lives in TX, NY nonresident), tester21 (CA resident, worked in WA), tester22 (FL resident, worked in TX, 1040 only).
+- [ ] Multi-state gaps: joint filers living in different states, city income taxes (NYC, Yonkers), and reciprocity agreements aren't modeled; the credit limit isn't applied income type by income type.
 - [ ] Components, Status Service, Data Model.
 - [ ] Caching. The read path at peak: CDN/edge for static assets, a per-user status cache, and invalidation on status change.
 - [ ] Notification Service.

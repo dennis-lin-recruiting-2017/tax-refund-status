@@ -39,7 +39,7 @@ export default function ApiGateway() {
         <h3>Problem</h3>
         <p>
           Filing is a stampede. On a peak day about 1.7 million returns arrive, about 100 a second in the busiest hour (see{' '}
-          <Link to="/technical-design/requirements/non-functional/capacity">Capacity Estimates</Link>). Each agency
+          <Link to="/technical-design/non-functional/capacity">Capacity Estimates</Link>). Each agency
           accepts only so many a second, and agencies slow down or go offline at exactly these times. Without a queue:
         </p>
         <ul className="points">

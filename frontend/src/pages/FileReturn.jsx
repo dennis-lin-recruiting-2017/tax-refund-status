@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { api, FILING_STATUSES, FORMS, formatMoney, formsFor, SAMPLE_BANK } from '../api.js'
+import { api, FILING_STATUSES, FORMS, formatLine, formatMoney, formsFor, SAMPLE_BANK } from '../api.js'
 import { useAuth } from '../auth.jsx'
 
 const EMPTY = {
@@ -10,15 +10,17 @@ const EMPTY = {
   interest: '',
   itemizedDeductions: '',
   dependents: '',
+  stateIncome: '',
   routingNumber: '',
   accountNumber: '',
 }
 
 const digits = (v, max) => v.replace(/\D/g, '').slice(0, max)
 
-function toPayload(values) {
+function toPayload(values, form) {
   const n = (v) => (v === '' ? 0 : Number(v))
   return {
+    ...(form.allocated && { stateIncome: n(values.stateIncome) }),
     filingStatus: values.filingStatus,
     wages: n(values.wages),
     withholding: n(values.withholding),
@@ -102,6 +104,7 @@ export default function FileReturn() {
       wages: String(form.sample.wages),
       withholding: String(form.sample.withholding),
       interest: String(form.sample.interest),
+      stateIncome: form.sample.stateIncome ? String(form.sample.stateIncome) : '',
       ...SAMPLE_BANK,
     }))
     setErrors({})
@@ -113,10 +116,10 @@ export default function FileReturn() {
     setError('')
     try {
       if (action === 'review') {
-        setEstimate(await api(`/returns/${form.id}/estimate`, { method: 'POST', body: toPayload(values) }))
+        setEstimate(await api(`/returns/${form.id}/estimate`, { method: 'POST', body: toPayload(values, form) }))
         return
       }
-      await api(`/returns/${form.id}`, { method: 'POST', body: toPayload(values) })
+      await api(`/returns/${form.id}`, { method: 'POST', body: toPayload(values, form) })
       navigate('/', { state: { flash: `Your ${form.title} was submitted. You can track it below.` } })
     } catch (err) {
       setErrors(err.fields)
@@ -187,6 +190,16 @@ export default function FileReturn() {
             <Field label={form.wagesLabel} name="wages" prefix="$" placeholder="0" {...props} />
             <Field label={form.withholdingLabel} name="withholding" prefix="$" placeholder="0" {...props} />
             <Field label="Taxable interest" name="interest" prefix="$" placeholder="0" {...props} />
+            {form.allocated && (
+              <Field
+                label={form.stateIncomeLabel}
+                name="stateIncome"
+                prefix="$"
+                placeholder="0"
+                hint="Wages and interest earned while living or working in the state. The state taxes this share."
+                {...props}
+              />
+            )}
             <Field
               label="Itemized deductions (optional)"
               name="itemizedDeductions"
@@ -216,7 +229,7 @@ export default function FileReturn() {
                 {estimate.lines.map((l) => (
                   <tr key={l.label}>
                     <td>{l.label}</td>
-                    <td>{formatMoney(l.amount)}</td>
+                    <td>{formatLine(l)}</td>
                   </tr>
                 ))}
               </tbody>

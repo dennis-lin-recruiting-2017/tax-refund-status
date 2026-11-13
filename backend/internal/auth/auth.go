@@ -23,15 +23,41 @@ const (
 )
 
 type User struct {
-	ID         string `json:"id"`
-	Email      string `json:"email"`
-	FullName   string `json:"fullName"`
-	TaxIDLast4 string `json:"taxIdLast4"`
-	Role       string `json:"role"`
-	State      string `json:"state"` // the state whose return this taxpayer files
+	ID         string        `json:"id"`
+	Email      string        `json:"email"`
+	FullName   string        `json:"fullName"`
+	TaxIDLast4 string        `json:"taxIdLast4"`
+	Role       string        `json:"role"`
+	States     []StateFiling `json:"states"` // where this taxpayer lives and works; returns to file first come first
 }
 
+// StateFiling is one state a taxpayer lives or works in, and how. In a state with an income tax,
+// residency decides the form; a state without one needs no return.
+type StateFiling struct {
+	State     string `json:"state"`
+	Name      string `json:"name"`
+	Residency string `json:"residency"` // resident, part_year, or nonresident
+	IncomeTax bool   `json:"incomeTax"`
+}
+
+// StatesSQL lists the states of the user aliased u as JSON. Part-year and nonresident returns come
+// first, because the resident return's credit for tax paid to other states depends on them.
+const StatesSQL = `(SELECT COALESCE(json_agg(json_build_object('state', us.state, 'name', st.name,
+		'residency', us.residency, 'incomeTax', st.income_tax)
+	ORDER BY us.residency = 'resident', us.state), '[]')
+	FROM user_states us JOIN states st ON st.code = us.state WHERE us.user_id = u.id)`
+
 func (u User) IsAdmin() bool { return u.Role == "admin" }
+
+// Filing returns how this user files in a state, if they do.
+func (u User) Filing(state string) (StateFiling, bool) {
+	for _, f := range u.States {
+		if f.State == state {
+			return f, true
+		}
+	}
+	return StateFiling{}, false
+}
 
 type Service struct {
 	pool         *pgxpool.Pool
@@ -119,8 +145,8 @@ func (s *Service) Require(next http.Handler) http.Handler {
 			SET expires_at = now() + make_interval(secs => $2)
 			FROM users u
 			WHERE s.token_hash = $1 AND s.expires_at > now() AND u.id = s.user_id
-			RETURNING u.id, u.email, u.full_name, u.tax_id_last4, u.role, u.state`, hashToken(c.Value), s.ttl.Seconds()).
-			Scan(&u.ID, &u.Email, &u.FullName, &u.TaxIDLast4, &u.Role, &u.State)
+			RETURNING u.id, u.email, u.full_name, u.tax_id_last4, u.role, `+StatesSQL, hashToken(c.Value), s.ttl.Seconds()).
+			Scan(&u.ID, &u.Email, &u.FullName, &u.TaxIDLast4, &u.Role, &u.States)
 		if err != nil {
 			s.setCookie(w, "", -1)
 			writeErr(w, http.StatusUnauthorized, "Your session has ended. Sign in again.")

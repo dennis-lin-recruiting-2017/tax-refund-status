@@ -105,7 +105,7 @@ export default function SecurityRequirements() {
         <h2>Under peak load</h2>
         <p>
           Every requirement holds through filing season. Capacity comes from scaling out, never from relaxing a
-          control (see <Link to="/technical-design/requirements/non-functional/capacity">Capacity Estimates</Link>).
+          control (see <Link to="/technical-design/non-functional/capacity">Capacity Estimates</Link>).
         </p>
       </section>
     </>

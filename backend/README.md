@@ -29,7 +29,7 @@ internal/config/      environment configuration
 internal/store/       pgx pool (traced), embedded SQL migrations, demo user seed
 internal/auth/        Argon2id passwords, lockout, server-side sessions, rate limiting
 internal/api/         HTTP handlers and middleware
-internal/tax/         simplified Form 1040 (2025), CA 540, and NY IT-201 calculators
+internal/tax/         simplified Form 1040 (2025), CA 540/540NR, and NY IT-201/IT-203 calculators
 internal/embedding/   return → 16-dim feature vector for similarity search
 internal/processor/   duplicate screening and transmission to agencies
 internal/batch/       batch status runs: claiming, sharding, scheduling policy
@@ -49,8 +49,8 @@ All routes are under `/api`. Every non-GET request must send `X-Requested-With: 
 | `GET /auth/me` | The signed-in user. |
 | `GET /returns` | The user's returns, each with its status history and calculation. |
 | `GET /drafts/{form}` | A demo account's pre-filled form (from the seed file), ready to submit. |
-| `POST /returns/{1040\|540}/estimate` | Calculates without saving. |
-| `POST /returns/{1040\|540}` | Files the return. Returns 409 if one is already filed for the year. |
+| `POST /returns/{form}/estimate` | Calculates without saving. `form` is `1040`, `540`, `540NR`, `IT-201`, or `IT-203`; a state form must match the user's residency there. |
+| `POST /returns/{form}` | Files the return. Returns 409 if one is already filed for that state and year, or if a resident return is filed before the user's part-year and nonresident returns. |
 | `DELETE /returns` | Deletes the user's returns (demo reset). |
 | `GET /admin/returns?q=` | Admin: newest 100 returns with taxpayer, our status, and the agency's live status. |
 | `PUT /admin/returns/{id}/agency-status` | Admin: `{status, paymentDate, refundAmount, amountOwed, message}` set at the mock agency, then synced to the taxpayer immediately. |

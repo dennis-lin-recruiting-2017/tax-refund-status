@@ -245,7 +245,16 @@
     "fullName": "Tester 08",
     "taxIdLast4": "2008",
     "role": "taxpayer",
-    "state": "CA",
+    "states": [
+      {
+        "state": "NY",
+        "residency": "nonresident"
+      },
+      {
+        "state": "CA",
+        "residency": "resident"
+      }
+    ],
     "drafts": {
       "1040": {
         "filingStatus": "single",
@@ -266,6 +275,17 @@
         "withholding": 2522,
         "routingNumber": "110000000",
         "accountNumber": "004000063352"
+      },
+      "IT-203": {
+        "filingStatus": "single",
+        "interest": 144,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 67400,
+        "withholding": 1000,
+        "routingNumber": "110000000",
+        "accountNumber": "004000063352",
+        "stateIncome": 16000
       }
     }
   },
@@ -275,7 +295,16 @@
     "fullName": "Tester 09",
     "taxIdLast4": "2009",
     "role": "taxpayer",
-    "state": "CA",
+    "states": [
+      {
+        "state": "CA",
+        "residency": "part_year"
+      },
+      {
+        "state": "NY",
+        "residency": "part_year"
+      }
+    ],
     "drafts": {
       "1040": {
         "filingStatus": "single",
@@ -287,15 +316,27 @@
         "routingNumber": "110000000",
         "accountNumber": "004000071271"
       },
-      "540": {
+      "540NR": {
         "filingStatus": "single",
         "interest": 197,
         "itemizedDeductions": 0,
         "dependents": 0,
         "wages": 68800,
-        "withholding": 2711,
+        "withholding": 1300,
         "routingNumber": "110000000",
-        "accountNumber": "004000071271"
+        "accountNumber": "004000071271",
+        "stateIncome": 30000
+      },
+      "IT-203": {
+        "filingStatus": "single",
+        "interest": 197,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 68800,
+        "withholding": 2100,
+        "routingNumber": "110000000",
+        "accountNumber": "004000071271",
+        "stateIncome": 38997
       }
     }
   },
@@ -545,7 +586,16 @@
     "fullName": "Tester 18",
     "taxIdLast4": "2018",
     "role": "taxpayer",
-    "state": "NY",
+    "states": [
+      {
+        "state": "CA",
+        "residency": "nonresident"
+      },
+      {
+        "state": "NY",
+        "residency": "resident"
+      }
+    ],
     "drafts": {
       "1040": {
         "filingStatus": "single",
@@ -566,6 +616,17 @@
         "withholding": 4097,
         "routingNumber": "110000000",
         "accountNumber": "004000142542"
+      },
+      "540NR": {
+        "filingStatus": "single",
+        "interest": 334,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 78800,
+        "withholding": 1100,
+        "routingNumber": "110000000",
+        "accountNumber": "004000142542",
+        "stateIncome": 20000
       }
     }
   },
@@ -596,6 +657,114 @@
         "withholding": 4266,
         "routingNumber": "110000000",
         "accountNumber": "004000150461"
+      }
+    }
+  },
+  {
+    "email": "tester20@test.com",
+    "password": "test",
+    "fullName": "Tester 20",
+    "taxIdLast4": "2020",
+    "role": "taxpayer",
+    "states": [
+      {
+        "state": "NY",
+        "residency": "nonresident"
+      },
+      {
+        "state": "TX",
+        "residency": "resident"
+      }
+    ],
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 210,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 75000,
+        "withholding": 8420,
+        "routingNumber": "110000000",
+        "accountNumber": "004000158380"
+      },
+      "IT-203": {
+        "filingStatus": "single",
+        "interest": 210,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 75000,
+        "withholding": 1650,
+        "routingNumber": "110000000",
+        "accountNumber": "004000158380",
+        "stateIncome": 30000
+      }
+    }
+  },
+  {
+    "email": "tester21@test.com",
+    "password": "test",
+    "fullName": "Tester 21",
+    "taxIdLast4": "2021",
+    "role": "taxpayer",
+    "states": [
+      {
+        "state": "WA",
+        "residency": "nonresident"
+      },
+      {
+        "state": "CA",
+        "residency": "resident"
+      }
+    ],
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 150,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 69000,
+        "withholding": 7040,
+        "routingNumber": "110000000",
+        "accountNumber": "004000166299"
+      },
+      "540": {
+        "filingStatus": "single",
+        "interest": 150,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 69000,
+        "withholding": 2640,
+        "routingNumber": "110000000",
+        "accountNumber": "004000166299"
+      }
+    }
+  },
+  {
+    "email": "tester22@test.com",
+    "password": "test",
+    "fullName": "Tester 22",
+    "taxIdLast4": "2022",
+    "role": "taxpayer",
+    "states": [
+      {
+        "state": "TX",
+        "residency": "nonresident"
+      },
+      {
+        "state": "FL",
+        "residency": "resident"
+      }
+    ],
+    "drafts": {
+      "1040": {
+        "filingStatus": "single",
+        "interest": 90,
+        "itemizedDeductions": 0,
+        "dependents": 0,
+        "wages": 64000,
+        "withholding": 5900,
+        "routingNumber": "110000000",
+        "accountNumber": "004000174218"
       }
     }
   },

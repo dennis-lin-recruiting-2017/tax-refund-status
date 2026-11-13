@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { api, FORMS, formatMoney } from '../api.js'
+import { api, FORMS, formatMoney, RESIDENCY_LABELS } from '../api.js'
 
 const POLL_MS = 5000
 
@@ -412,7 +412,14 @@ export default function Admin() {
                 <strong>{taxpayer.name}</strong>
                 <span className="muted small">
                   {' '}
-                  · {taxpayer.email} · •••-••-{taxpayer.taxIdLast4} · files in {taxpayer.state}
+                  · {taxpayer.email} · •••-••-{taxpayer.taxIdLast4} · states:{' '}
+                  {taxpayer.states
+                    .map((f) => {
+                      const how = [f.residency === 'resident' ? '' : RESIDENCY_LABELS[f.residency], f.incomeTax ? '' : 'no income tax']
+                      const detail = how.filter(Boolean).join(', ')
+                      return detail ? `${f.state} (${detail})` : f.state
+                    })
+                    .join(', ') || 'none'}
                 </span>
               </header>
               {returns.map((r) => (

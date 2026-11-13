@@ -135,7 +135,7 @@ function PeakSeason() {
           </tbody>
         </table>
         <p>
-          The numbers come from <Link to="/technical-design/requirements/non-functional/capacity">Capacity Estimates</Link>. Each one is
+          The numbers come from <Link to="/technical-design/non-functional/capacity">Capacity Estimates</Link>. Each one is
           planned at twice the forecast.
         </p>
       </section>
@@ -279,7 +279,7 @@ function ExtensionDeadline() {
           </li>
           <li>
             <strong>Capacity isn't the risk.</strong> Spread over six months, with one short spike, that's well under the
-            April peak the system is already sized for. <Link to="/technical-design/requirements/non-functional/capacity">Capacity
+            April peak the system is already sized for. <Link to="/technical-design/non-functional/capacity">Capacity
             Estimates</Link> assumes about 10% of filings fall outside the main season; the IRS figures suggest closer to
             14%, which is inside the margin of planning at twice the forecast.
           </li>

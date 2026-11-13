@@ -6,7 +6,7 @@ import StatusDiagram from './StatusDiagram.jsx'
 // What the service must do. As on the Security requirements page, each requirement is stated so it can be
 // tested, with where the design covers it and whether the demo does it today.
 
-const BASE = '/technical-design/requirements/functional'
+const BASE = '/technical-design/functional'
 
 function Header({ title, lede }) {
   return (
@@ -100,6 +100,9 @@ const LOOKUP_GROUPS = [
     title: 'Seeing a refund',
     rows: [
       ['Every return appears', 'The federal return and each state return have their own status for the tax year', 'demo'],
+      ['Several states are tracked together', 'A taxpayer who lived or worked in more than one state sees a return for each state with an income tax, on the form their residency calls for (resident, part-year, or nonresident)', 'demo'],
+      ['No return where no tax is due', 'A state with no income tax never gets a return. The taxpayer sees why: for example, they live in Texas, or earned income in Washington', 'demo'],
+      ['Living in a no-tax state works', 'A nonresident return to a state with an income tax is filed with no resident return and no credit; with no taxed state at all, only the federal return appears', 'demo'],
       ['Progress is clear at a glance', 'A timeline shows the steps, with the current one marked', 'demo', `${BASE}/status-lookup/states`],
       ['The amount is the real one', 'The filed amount until the agency reports its own, then both when they differ', 'demo'],
       ['The payment date is shown', 'Once approved: the expected date and the last 4 digits of the bank account', 'demo'],
@@ -364,7 +367,7 @@ const NOTIFY_GROUPS = [
       ['Never before it\'s visible', 'A message goes out only after the new status can be read', 'planned'],
       ['Sent once', 'At most one message per change, per channel, even if a sender retries', 'planned'],
       ['Timely', '99% within 5 minutes of the change in normal running', 'planned'],
-      ['Doesn\'t cause its own peak', 'Large batches are spread out, because each message brings a status read back', 'planned', '/technical-design/requirements/non-functional/capacity'],
+      ['Doesn\'t cause its own peak', 'Large batches are spread out, because each message brings a status read back', 'planned', '/technical-design/non-functional/capacity'],
       ['First to wait at peak', 'Notifications are delayed before anything else is shed', 'planned', '/operations/peak-season'],
     ],
   },

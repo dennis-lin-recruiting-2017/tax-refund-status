@@ -1,4 +1,4 @@
-import { filingStatusLabel, FORMS, formatMoney } from '../api.js'
+import { filingStatusLabel, FORMS, formatLine, formatMoney } from '../api.js'
 
 const REFUND_STEPS = ['received', 'processing', 'approved', 'sent']
 const NO_REFUND_STEPS = ['received', 'processing', 'accepted']
@@ -115,7 +115,7 @@ export default function ReturnCard({ ret }) {
             {ret.computed.lines.map((l) => (
               <tr key={l.label}>
                 <td>{l.label}</td>
-                <td>{formatMoney(l.amount)}</td>
+                <td>{formatLine(l)}</td>
               </tr>
             ))}
           </tbody>

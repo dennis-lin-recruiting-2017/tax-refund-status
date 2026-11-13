@@ -57,7 +57,9 @@ export default function Login() {
         <p className="hint">
           Demo accounts: <code>tester00@test.com</code> to <code>tester09@test.com</code> (federal + California),{' '}
           <code>tester10@test.com</code> to <code>tester19@test.com</code> (federal + New York), and{' '}
-          <code>admin@test.com</code>. The password for all of them is <code>test</code>.
+          <code>admin@test.com</code>. tester08, tester09, and tester18 file in both states;
+          tester20 to tester22 live or work in states with no income tax. The password for all of them
+          is <code>test</code>.
         </p>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { api, FORMS, formsFor } from '../api.js'
+import { api, fileFirst, FORMS, formsFor, noReturnNotes } from '../api.js'
 import { useAuth } from '../auth.jsx'
 import ReturnCard, { FINAL_STATUSES } from '../components/ReturnCard.jsx'
 
@@ -58,6 +58,9 @@ export default function Dashboard() {
         </div>
       )}
       {error && <div className="alert error" role="alert">{error}</div>}
+      {noReturnNotes(user).map((note) => (
+        <p key={note} className="muted small">{note}</p>
+      ))}
 
       {!data ? (
         <p className="loading">Loading your returns…</p>
@@ -71,6 +74,12 @@ export default function Dashboard() {
                 <p className="eyebrow">{form.agency} · {data.taxYear}</p>
                 <h2>{form.title}</h2>
                 <p className="muted">{form.subtitle}. Not filed yet.</p>
+                {fileFirst(user, form.id, Object.keys(byForm)).length > 0 && (
+                  <p className="muted small">
+                    File your {fileFirst(user, form.id, Object.keys(byForm)).join(' and ')} return first. This return
+                    claims a credit for the tax charged there.
+                  </p>
+                )}
                 <Link to={`/file/${form.id}`} className="btn">
                   File {form.title}
                 </Link>

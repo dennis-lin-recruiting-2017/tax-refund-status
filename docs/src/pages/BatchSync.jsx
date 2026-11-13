@@ -78,7 +78,7 @@ function Overview() {
           </li>
           <li>
             <strong>Customer traffic is spiky; agency capacity isn't.</strong> Reads peak at ~1,000 a second on
-            refund-release mornings (see <Link to="/technical-design/requirements/non-functional/capacity">Capacity Estimates</Link>).
+            refund-release mornings (see <Link to="/technical-design/non-functional/capacity">Capacity Estimates</Link>).
             Passing those through would exceed agency rate limits exactly when customers care most.
           </li>
           <li>
@@ -193,7 +193,7 @@ function Scheduling() {
         <p>
           Up to 10% random jitter is added to each due time, so millions of returns filed on the same day don't all come
           due in the same second. This policy is what brings agency lookups from ~140M to ~50M on a peak day (see{' '}
-          <Link to="/technical-design/requirements/non-functional/capacity">Capacity Estimates</Link>).
+          <Link to="/technical-design/non-functional/capacity">Capacity Estimates</Link>).
         </p>
       </section>
 
@@ -289,7 +289,7 @@ RETURNING id, agency_submission_id, status;`}</CodeBlock>
       <section>
         <h2>Sizing a run</h2>
         <p>
-          From <Link to="/technical-design/requirements/non-functional/capacity">Capacity Estimates</Link>: a peak-day IRS run checks
+          From <Link to="/technical-design/non-functional/capacity">Capacity Estimates</Link>: a peak-day IRS run checks
           ~7.5M returns, 75,000 bulk requests. Three limits decide how many shards it needs:
         </p>
         <table className="metrics">

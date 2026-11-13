@@ -1,6 +1,6 @@
 # Frontend
 
-The taxpayer portal: sign in, file a sample Form 1040 and CA Form 540, and track each refund. React + Vite, with no state library or CSS framework.
+The taxpayer portal: sign in, file a sample Form 1040 and a return for each state they file in (CA 540 or 540NR, NY IT-201 or IT-203), and track each refund. React + Vite, with no state library or CSS framework.
 
 ```bash
 npm install

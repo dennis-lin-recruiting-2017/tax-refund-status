@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/exaring/otelpgx"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -120,11 +121,31 @@ type DemoUser struct {
 	FullName   string `json:"fullName"`
 	TaxIDLast4 string `json:"taxIdLast4"`
 	Role       string `json:"role"`
-	State      string `json:"state"`
+	// Where the user lives and works. A single "state" in the seed file means a full resident of
+	// it; "states": [] means no state at all, so the user files only the federal return.
+	State  string       `json:"state,omitempty"`
+	States []DemoFiling `json:"states"`
 	// Drafts are pre-filled forms, by form ID, that the portal loads so a tester can review and
 	// submit without typing. They're demo fixtures served from this embedded file and never
 	// stored in the database.
 	Drafts map[string]json.RawMessage `json:"drafts,omitempty"`
+}
+
+type DemoFiling struct {
+	State     string `json:"state"`
+	Residency string `json:"residency"`
+}
+
+// Filings returns the user's states. A user with neither "state" nor "states" defaults to a
+// California resident.
+func (u DemoUser) Filings() []DemoFiling {
+	if u.States != nil {
+		return u.States
+	}
+	if u.State == "" {
+		return []DemoFiling{{"CA", "resident"}}
+	}
+	return []DemoFiling{{u.State, "resident"}}
 }
 
 // DemoUsers returns the accounts defined in demo-users.json.
@@ -162,16 +183,29 @@ func SeedDemoUsers(ctx context.Context, pool *pgxpool.Pool, hash func(string) (s
 		if u.Role == "" {
 			u.Role = "taxpayer"
 		}
-		if u.State == "" {
-			u.State = "CA"
-		}
 		// Demo accounts always match the seed file, so editing it and restarting is enough.
-		if _, err := pool.Exec(ctx, `INSERT INTO users (email, password_hash, full_name, tax_id_last4, role, state)
-			VALUES ($1, $2, $3, $4, $5, $6)
-			ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, full_name = EXCLUDED.full_name,
-				tax_id_last4 = EXCLUDED.tax_id_last4, role = EXCLUDED.role, state = EXCLUDED.state,
-				failed_logins = 0, locked_until = NULL`,
-			u.Email, h, u.FullName, u.TaxIDLast4, u.Role, u.State); err != nil {
+		err = pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+			var id string
+			if err := tx.QueryRow(ctx, `INSERT INTO users (email, password_hash, full_name, tax_id_last4, role)
+				VALUES ($1, $2, $3, $4, $5)
+				ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, full_name = EXCLUDED.full_name,
+					tax_id_last4 = EXCLUDED.tax_id_last4, role = EXCLUDED.role, failed_logins = 0, locked_until = NULL
+				RETURNING id`,
+				u.Email, h, u.FullName, u.TaxIDLast4, u.Role).Scan(&id); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, "DELETE FROM user_states WHERE user_id = $1", id); err != nil {
+				return err
+			}
+			for _, f := range u.Filings() {
+				if _, err := tx.Exec(ctx, "INSERT INTO user_states (user_id, state, residency) VALUES ($1, $2, $3)",
+					id, f.State, f.Residency); err != nil {
+					return fmt.Errorf("%s in %s: %w", u.Email, f.State, err)
+				}
+			}
+			return nil
+		})
+		if err != nil {
 			return err
 		}
 	}

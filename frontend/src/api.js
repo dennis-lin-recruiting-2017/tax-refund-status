@@ -27,6 +27,9 @@ export async function api(path, { method = 'GET', body } = {}) {
 export const formatMoney = (n) =>
   Number(n).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 
+// A calculation line's amount: dollars, except the share-of-income line on nonresident returns.
+export const formatLine = (l) => (l.label.endsWith('(%)') ? `${l.amount}%` : formatMoney(l.amount))
+
 export const FILING_STATUSES = [
   { value: 'single', label: 'Single' },
   { value: 'married_joint', label: 'Married filing jointly' },
@@ -65,12 +68,64 @@ export const FORMS = {
     withholdingLabel: 'NY income tax withheld (W-2 box 17)',
     sample: { wages: 72000, withholding: 3900, interest: 120 },
   },
+  '540NR': {
+    id: '540NR',
+    title: 'CA Form 540NR',
+    subtitle: 'California Nonresident or Part-Year Resident Income Tax Return',
+    agency: 'California',
+    allocated: true,
+    wagesLabel: 'Wages from all sources (W-2 box 1)',
+    withholdingLabel: 'CA income tax withheld (W-2 box 17)',
+    stateIncomeLabel: 'Income from California sources',
+    sample: { wages: 72000, withholding: 900, interest: 120, stateIncome: 24000 },
+  },
+  'IT-203': {
+    id: 'IT-203',
+    title: 'NY Form IT-203',
+    subtitle: 'New York Nonresident and Part-Year Resident Income Tax Return',
+    agency: 'New York',
+    allocated: true,
+    wagesLabel: 'Wages from all sources (W-2 box 1)',
+    withholdingLabel: 'NY income tax withheld (W-2 box 17)',
+    stateIncomeLabel: 'Income from New York sources',
+    sample: { wages: 72000, withholding: 1200, interest: 120, stateIncome: 24000 },
+  },
 }
 
-const STATE_FORMS = { CA: '540', NY: 'IT-201' }
+const STATE_FORMS = {
+  CA: { resident: '540', other: '540NR' },
+  NY: { resident: 'IT-201', other: 'IT-203' },
+}
 
-// The forms a taxpayer files: the federal 1040 plus their state's return.
-export const formsFor = (user) => ['1040', STATE_FORMS[user?.state] ?? '540']
+export const RESIDENCY_LABELS = { resident: 'resident', part_year: 'part-year resident', nonresident: 'nonresident' }
+
+const stateFormFor = (f) => STATE_FORMS[f.state]?.[f.residency === 'resident' ? 'resident' : 'other']
+
+// The forms a taxpayer files: the federal 1040, then one return per state. Part-year and
+// nonresident returns come first, because the resident return claims a credit for their tax.
+export const formsFor = (user) => ['1040', ...(user?.states ?? []).map(stateFormFor).filter(Boolean)]
+
+// For a resident state return: the other states whose returns must be filed first.
+export const fileFirst = (user, formId, filedForms) =>
+  FORMS[formId]?.allocated || formId === '1040'
+    ? []
+    : (user?.states ?? [])
+        .filter((f) => f.incomeTax && f.residency !== 'resident' && !filedForms.includes(stateFormFor(f)))
+        .map((f) => f.name)
+
+// Why there's no return for a state without an income tax, for the dashboard.
+export const noReturnNotes = (user) =>
+  (user?.states ?? [])
+    .filter((f) => !f.incomeTax)
+    .sort((a, b) => (a.residency === 'nonresident') - (b.residency === 'nonresident')) // where they live first
+    .map((f) => {
+      const where = {
+        resident: `You live in ${f.name}`,
+        part_year: `You lived in ${f.name} for part of the year`,
+        nonresident: `You also earned income in ${f.name}`,
+      }[f.residency]
+      return `${where}, which has no state income tax, so no ${f.name} return is needed.`
+    })
 
 // Published test routing number (valid checksum) and a fake account, for the demo only.
 export const SAMPLE_BANK = { routingNumber: '110000000', accountNumber: '000123456789' }
